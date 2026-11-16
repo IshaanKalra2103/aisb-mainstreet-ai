@@ -73,7 +73,7 @@ In Secret Manager in this project, uploaded by `setup.sh` through a pipe (never 
 | Secret | Source |
 |---|---|
 | `claude-code-oauth-token` | Keychain `AISB_CLAUDE_OAUTH` (env `CLAUDE_CODE_OAUTH_TOKEN`) |
-| `anthropic-api-key` | Keychain `ANTHROPIC_API_KEY`. Turns fall back to it when the token hits its usage limit (`api/src/msapi/runner.py`) |
+| `anthropic-api-key` | Keychain `ANTHROPIC_API_KEY`. Off by default: not loaded on the VM. Add it to the agent profile in `vm/fetch-secrets.py` and run `push.sh` to let turns fall back to it when the token hits its usage limit (`api/src/msapi/runner.py`) |
 | `tinyfish-api-key`, `openrouter-api-key`, `agentmail-api-key` | Keychain items of the same names in capitals |
 | `ms-relay-secret` | generated once by `setup.sh`; shared by the API and the relay |
 | `photon-project-id`, `photon-project-secret` | `imessage/.env` (`PROJECT_ID`, `PROJECT_SECRET`) |

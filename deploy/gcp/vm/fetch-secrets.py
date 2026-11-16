@@ -19,8 +19,10 @@ META = "http://metadata.google.internal/computeMetadata/v1/"
 PROFILES = {
     "agent": {
         "out": "/etc/mainstreet/agent.env", "owner": "root",
-        "secrets": {"CLAUDE_CODE_OAUTH_TOKEN": "claude-code-oauth-token", "ANTHROPIC_API_KEY": "anthropic-api-key",
-                    "TINYFISH_API_KEY": "tinyfish-api-key",
+        # The anthropic-api-key secret is uploaded but not loaded: turns run on the subscription token only.
+        # To let turns fall back to the key when the token hits its limit, add
+        # "ANTHROPIC_API_KEY": "anthropic-api-key" here and run push.sh.
+        "secrets": {"CLAUDE_CODE_OAUTH_TOKEN": "claude-code-oauth-token", "TINYFISH_API_KEY": "tinyfish-api-key",
                     "OPENROUTER_API_KEY": "openrouter-api-key", "AGENTMAIL_API_KEY": "agentmail-api-key",
                     "MS_RELAY_SECRET": "ms-relay-secret"},
         "metadata": {},
