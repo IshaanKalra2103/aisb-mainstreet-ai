@@ -14,12 +14,31 @@ class RateLimited(Exception):
     pass
 
 
-def split_texts(reply: str, link: str) -> list[str]:
-    parts = [p.replace(link, "").strip() for p in re.split(r"\n\s*\n", reply or "")]
+URL_RE = re.compile(r"https?://[^\s<>()\[\]]+")
+MD_LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
+
+
+def split_texts(reply: str, link: str) -> tuple[list[str], list[str]]:
+    """Plain bubbles (<= MAX_TEXTS) and the URLs pulled out of them (the page link is dropped: the relay sends it as a card)."""
+    urls: list[str] = []
+
+    def grab(u: str) -> str:
+        u = u.rstrip(".,;:!?")
+        if u and u != link and u not in urls:
+            urls.append(u)
+        return ""
+
+    text = MD_LINK_RE.sub(lambda m: (grab(m[2]) or "") + m[1], (reply or "").replace(link, ""))
+    text = URL_RE.sub(lambda m: grab(m[0]), text)
+    text = re.sub(r"\*\*(.+?)\*\*|__(.+?)__", lambda m: m[1] or m[2], text)
+    text = re.sub(r"(?m)^[ \t]*(?:#{1,6}[ \t]+|[-*\u2022][ \t]+)", "", text).replace("`", "")
+    text = re.sub(r"(?m)[ \t]*[:\-\u2013]+[ \t]*$", "", text)  # "Maryland SBDC:" left behind by a pulled URL
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    parts = [p.strip() for p in re.split(r"\n\s*\n", text)]
     parts = [p for p in parts if p]
     if len(parts) > MAX_TEXTS:
         parts = parts[: MAX_TEXTS - 1] + ["\n\n".join(parts[MAX_TEXTS - 1:])]
-    return parts or ["Done. Everything is on your page."]
+    return parts or ["Done. Everything is on your page."], urls[:1]
 
 
 class IMessage:
@@ -39,6 +58,7 @@ class IMessage:
         if self.counts.get(key, 0) >= self.per_day:
             raise RateLimited("That's all for today, try again tomorrow.")
         self.last[from_hash] = now
+        t0 = time.time()
         self.counts[key] = self.counts.get(key, 0) + 1
         oid = self.ws.owner_for_phone(from_hash)
         link = f"{self.s.web_url}/b/{oid}"
@@ -46,11 +66,18 @@ class IMessage:
             tid = self.turns.start(oid, text, "imessage")
         except LimitReached as e:  # busy owner, full queue, daily cap: the relay texts the detail back
             raise RateLimited(str(e))
+        urls: list[str] = []
         ev = await self.turns.wait(tid, self.wait_s)
         if ev is None:
-            replies = ["Still working on that. I'll put everything on your page."]
+            replies, urls = ["Still working on that. I'll put everything on your page."], []
         elif ev["type"] == "error":
             replies = ["Something went wrong on my side. Try again in a minute."]
         else:
-            replies = split_texts(ev["reply"], link)
-        return {"replies": replies, "link": link}
+            replies, urls = split_texts(ev["reply"], link)
+        # Rich extras for the relay: link cards (page first) and the preview video this turn made, if any.
+        video = None
+        if ev and ev["type"] == "done":
+            new = [f for f in self.ws.owner_dir(oid).glob("preview_*.mp4") if f.stat().st_mtime >= t0]
+            if new:
+                video = f"/media/{oid}/{max(new, key=lambda f: f.stat().st_mtime).name}"
+        return {"replies": replies, "link": link, "links": [link, *urls], "video_url": video}

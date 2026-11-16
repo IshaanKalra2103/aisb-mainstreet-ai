@@ -1,3 +1,4 @@
+import time
 import asyncio
 import json
 import os
@@ -350,3 +351,38 @@ async def test_poll_pages_public_events(make_client):
     assert tail["events"] == full["events"][1:] and tail["next"] == full["next"]
     assert (await c.get(f"/api/turns/{tid}/poll?after={full['next']}")).json()["events"] == []
     assert (await c.get("/api/turns/t_000000000000/poll")).status_code == 404
+
+
+def test_split_texts_plain_bubbles_and_urls_out():
+    from msapi.imessage import split_texts
+    link = "https://web.example/b/o_1"
+    reply = ("**Good news:** a chatbot fits your salon.\n\n"
+             "## Local help\n- Maryland SBDC: https://www.marylandsbdc.org\n- [Library](https://lib.example/x) is free.\n\n"
+             f"Two.\n\nThree.\n\nFour. {link}")
+    texts, urls = split_texts(reply, link)
+    assert len(texts) == 3
+    joined = "\n".join(texts)
+    for bad in ("**", "##", "- ", "](", "http"):
+        assert bad not in joined
+    assert "Maryland SBDC" in joined and "Library is free." in joined
+    assert len(urls) == 1 and urls[0].startswith("https://")  # one extra card at most; the page link is not repeated
+
+
+def test_split_texts_empty_falls_back():
+    from msapi.imessage import split_texts
+    assert split_texts("", "L")[0] == ["Done. Everything is on your page."]
+
+
+async def test_imessage_returns_links_and_new_preview_video(make_client, settings):
+    app, c = make_client(FakeRunner(script(reply="Done.")))
+    oid = app.state.ws.owner_for_phone(HASH)
+    (app.state.ws.owner_dir(oid) / "preview_x.mp4").write_bytes(b"v")
+    import os
+    os.utime(app.state.ws.owner_dir(oid) / "preview_x.mp4", (1, 1))  # older than the turn: not this turn's video
+    body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "hi"})).json()
+    assert body["links"] == [body["link"]] and body["video_url"] is None
+    app.state.imessage.min_gap = 0
+    future = time.time() + 5
+    os.utime(app.state.ws.owner_dir(oid) / "preview_x.mp4", (future, future))
+    body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "again"})).json()
+    assert body["video_url"] == f"/media/{oid}/preview_x.mp4"

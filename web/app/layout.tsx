@@ -11,6 +11,7 @@ const source = Source_Sans_3({ variable: "--font-source", subsets: ["latin"] });
 export const metadata: Metadata = {
   title: { default: APP_NAME, template: `%s | ${APP_NAME}` },
   description: TAGLINE,
+  openGraph: { title: APP_NAME, description: TAGLINE, siteName: APP_NAME, type: "website" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

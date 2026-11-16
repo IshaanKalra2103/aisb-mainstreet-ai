@@ -6,7 +6,10 @@
 // Only one consumer may read the Photon line. Stop any other (e.g. the old gtm-paperclip
 // container) first, or both will reply.
 // Docs: https://photon.codes/docs/spectrum-ts
-import { Spectrum } from "spectrum-ts";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Spectrum, attachment, richlink } from "spectrum-ts";
 import { imessage } from "@spectrum-ts/imessage";
 import { handleMessage, timeoutFromEnv } from "./relay.ts";
 
@@ -50,6 +53,17 @@ for await (const [space, message] of app.messages) {
     timeoutMs,
     fetch: (url, init) => fetch(url, init),
     send: (text) => space.send(text),
+    sendLink: (url) => space.send(richlink(url)),
+    sendVideo: async (bytes, name) => {
+      const dir = await mkdtemp(join(tmpdir(), "ms-video-"));
+      try {
+        const file = join(dir, name);
+        await writeFile(file, bytes);
+        await space.send(attachment(file));
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
     typing: (on) => (on ? space.startTyping() : space.stopTyping()),
   }).catch((e) => console.error(`[relay] handler crashed: ${e instanceof Error ? e.name : typeof e}`));
 }

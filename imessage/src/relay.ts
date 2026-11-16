@@ -18,6 +18,7 @@ export function timeoutFromEnv(v: string | undefined): number | undefined {
 }
 export const MAX_TEXT = 2_000; // the API rejects longer texts with a 422
 export const MAX_REPLIES = 3;
+export const MAX_VIDEO_BYTES = 25_000_000; // iMessage takes bigger, but this keeps the e2-micro safe
 
 /** The parts of a spectrum-ts `Message` the relay reads. */
 export interface IncomingLike {
@@ -33,6 +34,10 @@ export interface RelayDeps {
   secret?: string | undefined;
   fetch: FetchLike;
   send: (text: string) => Promise<unknown>;
+  /** Rich link preview card; without it a link goes out as a text. */
+  sendLink?: (url: string) => Promise<unknown>;
+  /** Inline attachment from bytes; without it the video is skipped. */
+  sendVideo?: (bytes: Uint8Array, name: string) => Promise<unknown>;
   sleep?: (ms: number) => Promise<void>;
   /** Best effort typing indicator while the agent works; failures are ignored. */
   typing?: (on: boolean) => Promise<unknown>;
@@ -60,7 +65,7 @@ export function relayable(msg: IncomingLike): { senderId: string; text: string }
 /** An error whose message is safe to log (no sender id, no text). */
 class RelayError extends Error {}
 
-type ApiResult = { kind: "ok"; replies: string[]; link: string } | { kind: "limited"; detail: string };
+type ApiResult = { kind: "ok"; replies: string[]; links: string[]; video: string } | { kind: "limited"; detail: string };
 
 async function callApi(fromHash: string, text: string, deps: RelayDeps): Promise<ApiResult> {
   const headers: Record<string, string> = { "content-type": "application/json" };
@@ -83,9 +88,13 @@ async function callApi(fromHash: string, text: string, deps: RelayDeps): Promise
     .filter((r): r is string => typeof r === "string" && r.trim() !== "")
     .map((r) => r.trim())
     .slice(0, MAX_REPLIES);
-  const link = typeof body.link === "string" ? body.link.trim() : "";
-  if (!replies.length && !link) throw new RelayError("empty reply");
-  return { kind: "ok", replies, link };
+  const links = (Array.isArray(body.links) ? body.links : [body.link])
+    .filter((l: unknown): l is string => typeof l === "string" && l.trim() !== "")
+    .map((l: string) => l.trim())
+    .slice(0, 2);
+  const video = typeof body.video_url === "string" && body.video_url.startsWith("/media/") ? body.video_url : "";
+  if (!replies.length && !links.length) throw new RelayError("empty reply");
+  return { kind: "ok", replies, links, video };
 }
 
 /** Error name or our own safe message. Never the raw message, which could echo user data. */
@@ -109,6 +118,18 @@ const quietly = async (fn: () => unknown) => {
   }
 };
 
+async function fetchVideo(path: string, deps: RelayDeps): Promise<Uint8Array | null> {
+  try {
+    const res = await deps.fetch(`${deps.apiUrl.replace(/\/+$/, "")}${path}`, { signal: AbortSignal.timeout(60_000) });
+    const len = Number(res.headers.get("content-length") ?? 0);
+    if (!res.ok || len > MAX_VIDEO_BYTES) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    return bytes.length > 0 && bytes.length <= MAX_VIDEO_BYTES ? bytes : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function handleMessage(msg: IncomingLike, deps: RelayDeps): Promise<Outcome> {
   const m = relayable(msg);
   if (!m) return "ignored";
@@ -121,6 +142,8 @@ export async function handleMessage(msg: IncomingLike, deps: RelayDeps): Promise
   log(`[in] ${tag}`);
 
   let outgoing: string[];
+  let links: string[] = [];
+  let video = "";
   let outcome: Outcome;
   await quietly(() => deps.typing?.(true));
   try {
@@ -129,7 +152,9 @@ export async function handleMessage(msg: IncomingLike, deps: RelayDeps): Promise
       outgoing = [r.detail];
       outcome = "rate_limited";
     } else {
-      outgoing = r.link ? [...r.replies, r.link] : r.replies;
+      outgoing = r.replies;
+      links = r.links;
+      video = r.video;
       outcome = "replied";
     }
   } catch (e) {
@@ -141,14 +166,29 @@ export async function handleMessage(msg: IncomingLike, deps: RelayDeps): Promise
   }
 
   try {
-    for (const [i, t] of outgoing.entries()) {
-      if (i > 0) await sleep(gap);
+    let n = 0;
+    const pace = async () => {
+      if (n++ > 0) await sleep(gap);
+    };
+    for (const t of outgoing) {
+      await pace();
       await deps.send(t);
+    }
+    for (const l of links) {
+      await pace();
+      await (deps.sendLink ? deps.sendLink(l) : deps.send(l));
+    }
+    if (video && deps.sendVideo) {
+      const bytes = await fetchVideo(video, deps); // a missing or oversized video is skipped, not an error
+      if (bytes) {
+        await pace();
+        await deps.sendVideo(bytes, video.split("/").pop() || "preview.mp4");
+      }
     }
   } catch (e) {
     log(`[send-fail] ${tag} ${describe(e)}`);
     return "send_failed";
   }
-  log(`[out] ${tag} ${outcome} texts=${outgoing.length} ${((Date.now() - started) / 1000).toFixed(1)}s`);
+  log(`[out] ${tag} ${outcome} texts=${outgoing.length} links=${links.length} video=${video ? 1 : 0} ${((Date.now() - started) / 1000).toFixed(1)}s`);
   return outcome;
 }

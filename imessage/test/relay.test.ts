@@ -178,3 +178,32 @@ test("a typing call that never settles does not block the reply", async () => {
   assert.ok(Date.now() - started < 4_500, "gave up on typing after ~3 s");
   assert.deepEqual(h.events, ["send:a", `sleep:${GAP_MS}`, "send:L"]);
 });
+
+test("links go out as link cards and a preview video as an attachment, after the texts", async () => {
+  const sent: string[] = [];
+  const h = harness(
+    (c) =>
+      c.url.endsWith("/media/o_abc/preview_x.mp4")
+        ? new Response(new Uint8Array([1, 2, 3]))
+        : json(200, { replies: ["one"], link: "P", links: ["P", "https://other.test"], video_url: "/media/o_abc/preview_x.mp4" }),
+    {
+      sendLink: async (u) => void h.events.push(`card:${u}`),
+      sendVideo: async (b, n) => void sent.push(`${n}:${b.length}`),
+    },
+  );
+  assert.equal(await handleMessage(msg(), h.deps), "replied");
+  assert.deepEqual(h.events.filter((e) => !e.startsWith("sleep")), ["send:one", "card:P", "card:https://other.test"]);
+  assert.deepEqual(sent, ["preview_x.mp4:3"]);
+  assert.equal(h.calls[1]!.url, "http://api.test/media/o_abc/preview_x.mp4");
+});
+
+test("a failed video fetch is skipped, texts and cards still go", async () => {
+  const sent: string[] = [];
+  const h = harness(
+    (c) => (c.url.includes("/media/") ? new Response("no", { status: 404 }) : json(200, { replies: ["one"], links: ["P"], video_url: "/media/o/preview_x.mp4" })),
+    { sendLink: async (u) => void h.events.push(`card:${u}`), sendVideo: async () => void sent.push("v") },
+  );
+  assert.equal(await handleMessage(msg(), h.deps), "replied");
+  assert.deepEqual(sent, []);
+  assert.ok(h.events.includes("card:P"));
+});
