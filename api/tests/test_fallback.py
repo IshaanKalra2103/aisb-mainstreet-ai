@@ -113,6 +113,32 @@ async def test_no_key_means_no_retry(settings, monkeypatch):
     assert any(e.get("is_error") for e in out)
 
 
+async def test_early_close_when_docker_run_exits_during_rm(settings, monkeypatch):
+    """`docker rm -f` makes `docker run` exit while cleanup awaits it; closing an attempt early must not raise."""
+    import asyncio
+    started, real = [], asyncio.create_subprocess_exec
+
+    async def spy(*a, **k):
+        p = await real(*a, **k)
+        started.append(p)
+        return p
+
+    class R(DockerRunner):
+        def command(self, *a, **k):
+            return ["sh", "-c", "echo '{\"type\": \"system\"}'; exec sleep 30"]
+
+        async def _rm(self, owner_id):
+            for p in started:
+                if p.returncode is None:
+                    p.kill()
+                    await p.wait()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", spy)
+    gen = R(settings)._attempt(OID, "hi", SID, use_key=False)
+    assert (await gen.__anext__())["type"] == "system"
+    await gen.aclose()
+
+
 def test_key_command_passes_only_the_key(settings):
     r = DockerRunner(settings)
     token = r.command(OID, "hi", SID, resume=False)

@@ -1,5 +1,6 @@
 """One agent turn = one `claude -p` inside the owner's sandbox container, streamed as stream-json events."""
 import asyncio
+import contextlib
 import json
 import os
 import re
@@ -150,7 +151,8 @@ class DockerRunner:
         finally:
             if proc.returncode is None:
                 await self._rm(owner_id)
-                proc.kill()
+                with contextlib.suppress(ProcessLookupError):  # `docker run` often exits during the rm
+                    proc.kill()
             err.cancel()
 
 
