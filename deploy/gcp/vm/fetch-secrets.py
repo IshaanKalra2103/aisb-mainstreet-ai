@@ -19,7 +19,8 @@ META = "http://metadata.google.internal/computeMetadata/v1/"
 PROFILES = {
     "agent": {
         "out": "/etc/mainstreet/agent.env", "owner": "root",
-        "secrets": {"CLAUDE_CODE_OAUTH_TOKEN": "claude-code-oauth-token", "TINYFISH_API_KEY": "tinyfish-api-key",
+        "secrets": {"CLAUDE_CODE_OAUTH_TOKEN": "claude-code-oauth-token", "ANTHROPIC_API_KEY": "anthropic-api-key",
+                    "TINYFISH_API_KEY": "tinyfish-api-key",
                     "OPENROUTER_API_KEY": "openrouter-api-key", "AGENTMAIL_API_KEY": "agentmail-api-key",
                     "MS_RELAY_SECRET": "ms-relay-secret"},
         "metadata": {},

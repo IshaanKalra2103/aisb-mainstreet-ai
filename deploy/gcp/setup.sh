@@ -116,6 +116,7 @@ from_keychain() { # from_keychain ITEM SECRET
   fi
 }
 from_keychain AISB_CLAUDE_OAUTH claude-code-oauth-token
+from_keychain ANTHROPIC_API_KEY anthropic-api-key # fallback when the token hits its usage limit
 from_keychain TINYFISH_API_KEY tinyfish-api-key
 from_keychain OPENROUTER_API_KEY openrouter-api-key
 from_keychain AGENTMAIL_API_KEY agentmail-api-key
@@ -140,7 +141,7 @@ from_env_file PROJECT_ID photon-project-id
 from_env_file PROJECT_SECRET photon-project-secret
 
 grant_secret() { gcloud secrets add-iam-policy-binding "$1" --member "serviceAccount:$2" --role roles/secretmanager.secretAccessor >/dev/null; }
-for s in claude-code-oauth-token tinyfish-api-key openrouter-api-key agentmail-api-key ms-relay-secret; do grant_secret "$s" "$AGENT_SA"; done
+for s in claude-code-oauth-token anthropic-api-key tinyfish-api-key openrouter-api-key agentmail-api-key ms-relay-secret; do grant_secret "$s" "$AGENT_SA"; done
 for s in photon-project-id photon-project-secret ms-relay-secret; do grant_secret "$s" "$RELAY_SA"; done
 
 # ---- 5. VMs --------------------------------------------------------------------------------------

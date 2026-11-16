@@ -322,6 +322,17 @@ async def test_health_serves_cache_while_refreshing(make_client, settings):
         raise AssertionError("refresh never landed")
 
 
+async def test_health_first_call_on_fresh_boot(make_client, settings, monkeypatch):
+    # Right after a VM boots, time.monotonic() is about the uptime, so it can be below health_ttl.
+    # The first call must still check health instead of failing with KeyError 'task'.
+    import msapi.app as app_mod
+    monkeypatch.setattr(app_mod.time, "monotonic", lambda: 5.0)
+    settings.health_ttl = 20.0
+    app, c = make_client(check_docker=lambda: True, check_token=lambda: True)
+    r = await c.get("/api/health")
+    assert r.status_code == 200 and r.json()["ok"] is True
+
+
 async def test_poll_pages_public_events(make_client):
     runner = GateRunner([{"type": "system", "subtype": "init"}, {"type": "runner_error", "message": "secret stack"}])
     app, c = make_client(runner)

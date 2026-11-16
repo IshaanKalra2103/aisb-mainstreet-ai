@@ -30,20 +30,40 @@ class Runner(Protocol):
     def run(self, owner_id: str, prompt: str, session_id: str, resume: bool) -> AsyncIterator[dict]: ...
 
 
+LIMIT_FALLBACK_S = 30 * 60  # when Claude rejects the token without saying when it resets
+
+
+def rejected_until(ev: dict) -> float | None:
+    """The reset time (epoch s) if this event says Claude rejected the request for usage limits, else None."""
+    info = (ev.get("rate_limit_info") or {}) if ev.get("type") == "rate_limit_event" else {}
+    if info.get("status") != "rejected":
+        return None
+    return float(info.get("resetsAt") or time.time() + LIMIT_FALLBACK_S)
+
+
 class DockerRunner:
+    """Runs turns on the subscription token (CLAUDE_CODE_OAUTH_TOKEN). When Claude rejects it for usage limits
+    before the agent did anything, the turn reruns on ANTHROPIC_API_KEY, and later turns use the key until the
+    token's limit resets."""
+
     def __init__(self, settings: Settings):
         self.s = settings
+        self.token_limited_until = 0.0
 
     def env(self) -> dict:
         return {**os.environ, "CLAUDE_CODE_OAUTH_TOKEN": clean_token(os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"))}
 
+    def has_key(self) -> bool:
+        return bool(os.environ.get("ANTHROPIC_API_KEY", "").strip())
+
     def name(self, owner_id: str) -> str:
         return f"ms-{owner_id}"
 
-    def command(self, owner_id: str, prompt: str, session_id: str, resume: bool) -> list[str]:
+    def command(self, owner_id: str, prompt: str, session_id: str, resume: bool, use_key: bool = False) -> list[str]:
         work = self.s.workspaces / owner_id
-        # Secrets go by name only (-e NAME), so values never show up in `ps`.
-        env = ["-e", "CLAUDE_CODE_OAUTH_TOKEN", "-e", "CLAUDE_CONFIG_DIR=/work/.claude-config",
+        # Secrets go by name only (-e NAME), so values never show up in `ps`. Exactly one Claude credential.
+        cred = "ANTHROPIC_API_KEY" if use_key else "CLAUDE_CODE_OAUTH_TOKEN"
+        env = ["-e", cred, "-e", "CLAUDE_CONFIG_DIR=/work/.claude-config",
                "-e", f"MS_OWNER_ID={owner_id}", *[x for k in PASS_ENV for x in ("-e", k)]]
         return ["docker", "run", "--rm", "--name", self.name(owner_id), "--label", "mainstreet=1",
                 "--memory", "1g", "--cpus", "1.5", "--pids-limit", "256",
@@ -54,22 +74,58 @@ class DockerRunner:
                 "--settings", "/sandbox/settings.json", "--add-dir", "/work",
                 "--allowedTools", ALLOWED_TOOLS, "--disallowedTools", DISALLOWED_TOOLS]
 
+    def session_files(self, owner_id: str, session_id: str) -> list:
+        return list((self.s.workspaces / owner_id / ".claude-config" / "projects").glob(f"*/{session_id}.jsonl"))
+
     def session_exists(self, owner_id: str, session_id: str) -> bool:
-        return any((self.s.workspaces / owner_id / ".claude-config" / "projects").glob(f"*/{session_id}.jsonl"))
+        return bool(self.session_files(owner_id, session_id))
+
+    async def run(self, owner_id: str, prompt: str, session_id: str, resume: bool) -> AsyncIterator[dict]:
+        if time.time() < self.token_limited_until and self.has_key():
+            async for ev in self._attempt(owner_id, prompt, session_id, use_key=True):
+                yield ev
+            return
+        # A rejected attempt still writes the prompt and the limit message into the session: remember its size.
+        before = {p: p.stat().st_size for p in self.session_files(owner_id, session_id)}
+        retry, worked = False, False
+        attempt = self._attempt(owner_id, prompt, session_id, use_key=False)
+        try:
+            async for ev in attempt:
+                until = rejected_until(ev)
+                if until is not None:
+                    self.token_limited_until = until
+                    # Retry only if the agent has not run anything yet; a retry could repeat paid tool calls.
+                    if not worked and self.has_key():
+                        retry = True
+                        break
+                worked = worked or ev.get("type") in ("assistant", "user")
+                yield ev
+        finally:
+            await attempt.aclose()  # stops the container now, not at garbage collection
+        if not retry:
+            return
+        for p in self.session_files(owner_id, session_id):
+            if p in before:
+                with p.open("r+b") as f:
+                    f.truncate(before[p])
+            else:
+                p.unlink()
+        async for ev in self._attempt(owner_id, prompt, session_id, use_key=True):
+            yield ev
 
     async def _rm(self, owner_id: str) -> None:
         p = await asyncio.create_subprocess_exec("docker", "rm", "-f", self.name(owner_id),
                                                  stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
         await p.wait()
 
-    async def run(self, owner_id: str, prompt: str, session_id: str, resume: bool) -> AsyncIterator[dict]:
+    async def _attempt(self, owner_id: str, prompt: str, session_id: str, use_key: bool) -> AsyncIterator[dict]:
         self.s.budget.mkdir(parents=True, exist_ok=True)
         (self.s.workspaces / "_decisions" / owner_id).mkdir(parents=True, exist_ok=True)
         # What is on disk wins over our flag: a turn that died early may or may not have created the session.
         resume = self.session_exists(owner_id, session_id)
         await self._rm(owner_id)  # the per-owner lock means any container with this name is a leftover
         proc = await asyncio.create_subprocess_exec(
-            *self.command(owner_id, prompt, session_id, resume), env=self.env(),
+            *self.command(owner_id, prompt, session_id, resume, use_key), env=self.env(),
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, limit=16 * 1024 * 1024)
         err = asyncio.create_task(proc.stderr.read())
         deadline = time.monotonic() + self.s.turn_timeout

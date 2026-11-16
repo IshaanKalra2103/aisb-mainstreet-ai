@@ -95,7 +95,9 @@ def create_app(runner: Runner | None = None, settings: Settings | None = None,
     @app.get("/api/health")
     async def health():
         # Stale-while-revalidate: one refresh at a time, and callers get the cached body while it runs.
-        if health_cache.get("at", 0) < time.monotonic() - s.health_ttl and "task" not in health_cache:
+        # "Never checked" counts as stale: on a fresh boot time.monotonic() can be below health_ttl.
+        stale = "at" not in health_cache or health_cache["at"] < time.monotonic() - s.health_ttl
+        if stale and "task" not in health_cache:
             health_cache["task"] = asyncio.create_task(_refresh_health())
         if "body" in health_cache:
             return health_cache["body"]
