@@ -58,7 +58,7 @@ function liveOwner(page: import("@playwright/test").Page, website: string | null
   });
 }
 
-const art = (kind: string, n?: number) => `/api/site-art?${new URLSearchParams({ site: "https://beanandbrick.example/", kind, ...(n ? { n: String(n) } : {}) })}`;
+const art = (kind: string, n?: number) => `/api/site-art?${new URLSearchParams({ site: "https://beanandbrick.example/", kind, ...(kind === "photo" ? { v: "2" } : {}), ...(n ? { n: String(n) } : {}) })}`;
 
 test("a live owner's page shows photos and the logo from the shop's own website", async ({ page }) => {
   await liveOwner(page, "beanandbrick.example");

@@ -1,19 +1,23 @@
+import { useState } from "react";
 import { ObIcon } from "./obIcons";
 
 /**
  * The wait while the agent works (sheet panel F): a pulse around the shop's photo, or the mascot before we have one
  * (Cal AI listening), each step ticking in as the agent reaches it (Reddit), the current one still pulsing, and a bar
  * that fills with the steps. No percent: the agent does not know its own length, so a number would be made up.
+ * A site with no usable photo (the route answers 404) gets the mascot too, not a broken image.
  */
 export default function ReadingSite({ title, steps, photo }: { title: string; steps: string[]; photo: string | null }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const shop = photo !== failed ? photo : null;
   const shown = steps.slice(-5);
   const fill = Math.min(0.9, 0.08 + steps.length / 7);
   return (
     <div className="ob-read">
       <div className="ob-site" aria-hidden>
         <span className="ob-ring" /><span className="ob-ring" />
-        {photo
-          ? <img src={photo} alt="" />
+        {shop
+          ? <img src={shop} alt="" onError={() => setFailed(shop)} />
           : <img src="/brand/mascot.webp" alt="" className="ob-mascot-img" />}
       </div>
       <h2 className="mt-7 text-[1.9rem] leading-[1.1] text-balance">{title}</h2>

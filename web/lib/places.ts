@@ -36,7 +36,8 @@ export function placePhoto(ownerId: string, profile: Profile | null | undefined,
   }
   const site = ownSite(profile?.website);
   if (!site) return null;
-  const q = new URLSearchParams({ site, kind: "photo" });
+  // v: bump when the photo picker changes, so browsers and the CDN drop the photos they cached from the old one.
+  const q = new URLSearchParams({ site, kind: "photo", v: "2" });
   if (view) q.set("n", String(view % 4));
   return `/api/site-art?${q}`;
 }

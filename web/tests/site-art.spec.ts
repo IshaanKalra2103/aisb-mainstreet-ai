@@ -15,7 +15,7 @@ const SHOP = `<!doctype html><html><head>
 <img data-src="//shop.test/cdn/shop/files/bean_{width}x.png?v=3" alt="Peru">
 <img src="/small.jpg" srcset="/a-400.jpg 400w, /a-1600.jpg 1600w" alt="Our bar">
 <img src="/icons/cart-icon.svg" alt="cart">
-<div style="background-image:url('//shop.test/cdn/shop/files/banner_800x800_crop_center.jpg?v=4')"></div>
+<div style="background-image:url('//shop.test/cdn/shop/files/patio_800x800_crop_center.jpg?v=4')"></div>
 <img src="data:image/gif;base64,R0lGOD" alt="">
 </body></html>`;
 
@@ -29,11 +29,39 @@ test("the page's logos and photos are found and made absolute", () => {
   expect(art.photos).toEqual(expect.arrayContaining([
     "https://shop.test/cdn/shop/files/bean_1600x.png?v=3",
     "https://shop.test/a-1600.jpg",
-    "https://shop.test/cdn/shop/files/banner_1600x.jpg?v=4",
+    "https://shop.test/cdn/shop/files/patio_1600x.jpg?v=4",
   ]));
   for (const no of ["{{img}}", "cart-icon", "data:", "Logo_400x", "favicon", "/small.jpg"]) {
     expect(art.photos.join(" "), no).not.toContain(no);
   }
+});
+
+// Vigilante Coffee's home page: a blank sharing image, a carousel of sale and new-crop banners with text baked in,
+// product shots, then real photos of its cafes further down with camera file names.
+const PROMOS = `<!doctype html><html><head>
+<meta property="og:image" content="https://shop.test/cdn/shop/files/VideoCover_1600x.jpg?v=1">
+</head><body>
+<div class="home-carousel__bg" style="background-image: url(//shop.test/cdn/shop/files/Holiday_Sale_Web_Banners_1_1400x.jpg?v=2)"></div>
+<div class="home-carousel__bg" style="background-image: url(//shop.test/cdn/shop/files/Web_Banner_1400_x_600_px_4_1400x.jpg?v=3)"></div>
+<div class="home-carousel__bg" style="background-image: url(//shop.test/cdn/shop/files/graciela-fresh-crop_1400x.jpg?v=4)"></div>
+<img src="//shop.test/cdn/shop/files/BlackFridayDeal_1400x.jpg?v=5" alt="">
+<img src="//shop.test/cdn/shop/files/hero-1_1400x.jpg?v=6" alt="Thanksgiving sale: 10% off">
+<img src="//shop.test/cdn/shop/files/wholesale-roastery_1400x.jpg?v=7" alt="Our roastery">
+<img src="/images/ads/wivells-ad-2026-10-22-ws.jpg" alt="">
+<img src="/images/mobile-banner.jpg" alt="">
+<div class="u-bg-cover" style="background-image: url(//shop.test/cdn/shop/files/IMG-8881b_720x.jpg?v=8)"></div>
+<div class="u-bg-cover" style="background-image: url(//shop.test/cdn/shop/files/JT109806_1_720x.jpg?v=9)"></div>
+<img src="//shop.test/cdn/shop/files/1400x600-hero_1400x.jpg?v=10" alt="">
+</body></html>`;
+
+test("sale banners are skipped, camera photos come right after the sharing image, carousel slides go last", () => {
+  const names = findArt(PROMOS, "https://shop.test/").photos.map((u) => new URL(u).pathname.split("/").pop());
+  expect(names).toEqual([
+    "VideoCover_1600x.jpg", // the sharing image stays first (pickPhotos drops it when it's blank)
+    "IMG-8881b_1600x.jpg", "JT109806_1_1600x.jpg", // camera file names: photos of the place
+    "wholesale-roastery_1600x.jpg", "1400x600-hero_1600x.jpg", // the rest of the page, in order
+    "graciela-fresh-crop_1600x.jpg", // a carousel slide: usually a graphic with words on it
+  ]);
 });
 
 test("only public internet addresses are read", () => {

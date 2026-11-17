@@ -128,32 +128,59 @@ function absolute(raw: string | undefined, base: URL, photo: boolean): string | 
 /** Interface graphics, not photos. */
 const CHROME = /\.(svg|ico|gif)(\?|$)|(?<![a-z])(icons?|sprites?|spinner|placeholder|payments?|arrows?|avatars?|badges?|stars?)(?![a-z])/i;
 
+/** A file name without its folder, extension or Shopify size ("IMG_2011_720x.jpg" is "IMG_2011"). */
+function stem(href: string): string {
+  let name = new URL(href).pathname.split("/").pop() ?? "";
+  try {
+    name = decodeURIComponent(name);
+  } catch { /* keep it as it is */ }
+  return name.replace(/\.\w+$/, "").replace(/_\d*x\d*(_crop_[a-z]+)?$/i, "");
+}
+
+/** Words in a file name or alt text, camelCase split: "Holiday_Sale_Web_Banners" is holiday sale web banners. */
+const words = (s: string) => ` ${s.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().split(/[^a-z0-9%]+/).join(" ")} `;
+
+/** Ads with the words baked in (a sale banner), not a picture of the shop. */
+const PROMO = / (ads?|adverts?|banners?|sales?|promos?|promotion|discounts?|coupons?|deals?|bogo|holidays?|thanksgiving|christmas|xmas|blackfriday|cybermonday|giftcards?|flyers?|\d+%|black friday|cyber monday|gift cards?|free shipping) /;
+
+/** A camera's file name (IMG_2011, DSCF0042, PXL_20240101_..., 20231014_123000): almost always a real photo. */
+const CAMERA = /^(?:[a-z]{1,5}[-_]?)?\d{4,}(?!\d*x\d)/i;
+
+/** Slideshows, whose slides are mostly banners with words on them. */
+const SLIDES = /carousel|slide(r|show)|swiper|slick-|flickity|splide/i;
+
 /** The page's images as absolute URLs: og (sharing images), logos (marked "logo", then structured data, then the
- * touch icon) and photos (og first, then images and backgrounds in page order). */
+ * touch icon) and photos: og first, then camera-named photos, then the other images and backgrounds in page order,
+ * then slideshow slides. Sale and promo graphics are left out. */
 export function findArt(html: string, baseHref: string) {
   const base = new URL(baseHref);
-  const og: string[] = [], logos: string[] = [], page: string[] = [], late: string[] = [];
-  const add = (list: string[], raw: string | undefined, photo: boolean) => {
+  const og: string[] = [], logos: string[] = [], page: string[] = [], slides: string[] = [], late: string[] = [];
+  const add = (list: string[], raw: string | undefined, photo: boolean, alt = "") => {
     const u = absolute(raw, base, photo);
-    if (u && !list.includes(u)) list.push(u);
+    if (!u || list.includes(u)) return;
+    if (photo && PROMO.test(words(`${new URL(u).pathname.replace(/\/[^/]*$/, "")} ${stem(u)} ${alt}`))) return;
+    list.push(u);
   };
   for (const m of html.matchAll(/"logo"\s*:\s*(?:\{[^}]*?"url"\s*:\s*)?"([^"]+)"/g)) add(late, m[1].replace(/\\\//g, "/"), false);
   const doc = html.replace(/<!--[\s\S]*?-->|<script\b[\s\S]*?<\/script>|<style\b[\s\S]*?<\/style>/gi, " ");
   for (const m of doc.matchAll(/<(meta|link|img|source|div|section)\b([^>]*)>/gi)) {
     const tag = m[1].toLowerCase(), a = attrs(m[2]);
+    const where = SLIDES.test(`${a.class} ${a.id}`) ? slides : page;
     if (tag === "meta" && /^(og:image(:secure_url)?|twitter:image)$/.test(a.property ?? a.name ?? "")) add(og, a.content, true);
     else if (tag === "link" && /apple-touch-icon/.test(a.rel ?? "")) add(late, a.href, false);
     else if (tag === "img" || tag === "source") {
       const src = largest(a["data-srcset"] || a.srcset) ?? a["data-src"] ?? a.src;
       if (/logo/i.test(`${a.class} ${a.id} ${a.alt} ${a.itemprop} ${src}`)) add(logos, src, false);
-      else if (src && !CHROME.test(src) && !(+a.width < 300)) add(page, src, true);
+      else if (src && !CHROME.test(src) && !(+a.width < 300)) add(where, src, true, a.alt);
     } else {
       const bg = /background(?:-image)?\s*:[^;]*url\(\s*['"]?([^'")]+)/i.exec(a.style ?? "")?.[1];
-      if (bg && !CHROME.test(bg)) add(page, bg, true);
+      if (bg && !CHROME.test(bg)) add(where, bg, true);
     }
   }
   const allLogos = [...new Set([...logos, ...late])];
-  return { og, logos: allLogos, photos: [...new Set([...og, ...page])].filter((u) => !allLogos.includes(u)) };
+  const camera = [...page, ...slides].filter((u) => CAMERA.test(stem(u)));
+  const photos = [...new Set([...og, ...camera, ...page, ...slides])].filter((u) => !allLogos.includes(u));
+  return { og, logos: allLogos, photos };
 }
 
 // ---------------------------------------------------------------- judging images
