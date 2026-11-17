@@ -417,3 +417,9 @@ async def test_imessage_stops_share_card_once_the_owner_has_shared(make_client):
                             "channel": "web"}) + "\n")
     body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "hi"})).json()
     assert body["links"] == [body["link"]]
+
+
+def test_docker_runner_passes_the_inbox_base_by_name(settings):
+    # setup's `inbox create` hands out plus-addresses of this inbox (AgentMail's free plan holds 3 inboxes)
+    cmd = DockerRunner(settings).command("o_1234567890", "hello", "sid-1", resume=False)
+    assert "MS_INBOX_BASE" in cmd and cmd[cmd.index("MS_INBOX_BASE") - 1] == "-e"

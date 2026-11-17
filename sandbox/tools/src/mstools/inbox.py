@@ -2,6 +2,11 @@
 
 `wait` and `read` add `codes` (4-8 digit numbers) and `links` found in the mail. The key comes from
 AGENTMAIL_API_KEY. Every API call retries 429/5xx up to 5 times, honouring Retry-After.
+
+With MS_INBOX_BASE set (an existing inbox, e.g. name@agentmail.to), `create` hands out a fresh plus-address
+of it (name+<tag>@agentmail.to) instead of a new inbox: AgentMail's free plan holds only 3 inboxes. Mail to a
+plus-address lands in the base inbox, so the other commands read the base inbox and keep only mail sent to
+that exact address.
 """
 import argparse
 import os
@@ -48,18 +53,37 @@ def parse_since(value: str) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+def base_of(addr: str) -> str:
+    """name+tag@domain -> name@domain; any other address unchanged."""
+    local, at, domain = addr.partition("@")
+    return f"{local.split('+', 1)[0]}@{domain}" if at else addr
+
+
+def sent_to(m, addr: str) -> bool:
+    """True when addr is the base inbox itself, or one of the message's recipients."""
+    if base_of(addr) == addr:
+        return True
+    return any(addr.lower() in str(t).lower() for t in (m.to or []))
+
+
+def plus_address(base: str, username: str | None) -> str:
+    local, _, domain = base.partition("@")
+    hint = re.sub(r"[^a-z0-9]", "", (username or "").lower())[:20]
+    return f"{local.split('+', 1)[0]}+{hint}{uuid.uuid4().hex[:6]}@{domain}"
+
+
 def _wait(c, a) -> dict:
     since = parse_since(a.since)
     deadline = time.monotonic() + a.timeout
     interval = 3.0
     log(f"waiting up to {a.timeout}s for mail to {a.inbox}")
     while True:
-        recent = c.inboxes.messages.list(a.inbox, limit=50, include_spam=True, request_options=RETRY).messages
-        hits = sorted((m for m in recent if m.created_at >= since
+        recent = c.inboxes.messages.list(base_of(a.inbox), limit=50, include_spam=True, request_options=RETRY).messages
+        hits = sorted((m for m in recent if m.created_at >= since and sent_to(m, a.inbox)
                        and (not a.from_ or a.from_.lower() in (m.from_ or "").lower())
                        and (not a.subject or a.subject.lower() in (m.subject or "").lower())), key=lambda m: m.created_at)
         if hits:
-            return {"message": full_obj(c.inboxes.messages.get(a.inbox, hits[-1].message_id, request_options=RETRY))}
+            return {"message": full_obj(c.inboxes.messages.get(base_of(a.inbox), hits[-1].message_id, request_options=RETRY))}
         if time.monotonic() >= deadline:
             raise ToolError(f"No email arrived at {a.inbox} within {a.timeout}s.")
         time.sleep(min(interval, max(0.0, deadline - time.monotonic())))
@@ -67,6 +91,9 @@ def _wait(c, a) -> dict:
 
 
 def _main(a: argparse.Namespace) -> dict:
+    base = os.environ.get("MS_INBOX_BASE", "").strip()
+    if a.cmd == "create" and base:
+        return {"inbox": plus_address(base, a.username)}
     c = client()
     if a.cmd == "create":
         from agentmail.inboxes.types.create_inbox_request import CreateInboxRequest
@@ -77,9 +104,9 @@ def _main(a: argparse.Namespace) -> dict:
     if a.cmd == "wait":
         return _wait(c, a)
     if a.cmd == "read":
-        return {"message": full_obj(c.inboxes.messages.get(a.inbox, a.message_id, request_options=RETRY))}
-    msgs = c.inboxes.messages.list(a.inbox, limit=a.limit, request_options=RETRY).messages
-    return {"messages": [summary_obj(m) for m in msgs]}
+        return {"message": full_obj(c.inboxes.messages.get(base_of(a.inbox), a.message_id, request_options=RETRY))}
+    msgs = c.inboxes.messages.list(base_of(a.inbox), limit=a.limit, request_options=RETRY).messages
+    return {"messages": [summary_obj(m) for m in msgs if sent_to(m, a.inbox)]}
 
 
 def main() -> None:

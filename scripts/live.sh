@@ -260,6 +260,15 @@ do_start() {
   keychain_export AGENTMAIL_API_KEY AGENTMAIL_API_KEY
   keychain_export AISB_CLAUDE_OAUTH CLAUDE_CODE_OAUTH_TOKEN
   say "keys loaded from the Keychain"
+  # Optional: sign-ups get plus-addresses of one AgentMail inbox (the free plan holds only 3 inboxes).
+  if [[ -z ${MS_INBOX_BASE:-} ]] && base="$(security find-generic-password -s MS_INBOX_BASE -w 2>/dev/null)"; then
+    export MS_INBOX_BASE="$base"
+  fi
+  if [[ -n ${MS_INBOX_BASE:-} ]]; then
+    say "sign-ups use plus-addresses of one AgentMail inbox"
+  else
+    warn "no MS_INBOX_BASE (Keychain item MS_INBOX_BASE): each setup creates a new AgentMail inbox, and the free plan holds 3"
+  fi
 
   unset MS_RUNNER # a leftover MS_RUNNER=fake from testing would serve the fake agent
   MS_RELAY_SECRET="$(openssl rand -hex 16)"

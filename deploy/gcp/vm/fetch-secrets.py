@@ -26,6 +26,9 @@ PROFILES = {
                     "OPENROUTER_API_KEY": "openrouter-api-key", "AGENTMAIL_API_KEY": "agentmail-api-key",
                     "MS_RELAY_SECRET": "ms-relay-secret"},
         "metadata": {},
+        # Set when present, skipped when not: sign-ups get plus-addresses of this AgentMail inbox
+        # (gcloud compute instances add-metadata ms-agent --metadata ms-inbox-base=name@agentmail.to).
+        "optional_metadata": {"MS_INBOX_BASE": "ms-inbox-base"},
         "fixed": {},
     },
     "relay": {
@@ -80,6 +83,12 @@ def main(profile: str) -> int:
         env[var] = base64.b64decode(body["payload"]["data"]).decode().strip()
     for var, attr in p["metadata"].items():
         env[var] = meta(f"instance/attributes/{attr}").strip()
+    for var, attr in p.get("optional_metadata", {}).items():
+        try:
+            env[var] = meta(f"instance/attributes/{attr}").strip()
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                raise
     env.update(p["fixed"])
     out = p["out"]
     os.makedirs(os.path.dirname(out), exist_ok=True)

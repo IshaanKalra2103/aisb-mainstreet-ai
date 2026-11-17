@@ -12,7 +12,7 @@ from .settings import Settings
 
 ALLOWED_TOOLS = "Bash(ws:*),Bash(catalog:*),Bash(tf:*),Bash(inbox:*),Bash(preview:*),Bash(approval:*),Read,Write,Edit,Skill"
 DISALLOWED_TOOLS = "WebFetch,WebSearch"
-PASS_ENV = ("TINYFISH_API_KEY", "OPENROUTER_API_KEY", "AGENTMAIL_API_KEY")
+PASS_ENV = ("TINYFISH_API_KEY", "OPENROUTER_API_KEY", "AGENTMAIL_API_KEY", "MS_INBOX_BASE")
 
 
 def clean_token(raw: str | None) -> str:
