@@ -17,12 +17,16 @@ export default function ShopShare({ ownerId }: { ownerId: string }) {
   const [locState, setLocState] = useState<LocState>("idle");
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The web-address warning waits until the owner leaves the field or taps Share: mid-typing text is not a link yet.
+  const [linkChecked, setLinkChecked] = useState(false);
   const busy = useRef(false); // a double tap lands before React re-renders the disabled button
+  const linkField = useRef<HTMLInputElement>(null);
   const page = `/b/${ownerId}`;
   const link = normalizeLink(raw);
   // Typed text that is not a link (an @handle, a shop name) would otherwise go out as "Link: none" without a word.
   const badLink = raw.trim() !== "" && link === null;
-  const canShare = (link !== null || loc !== null) && !badLink && !posting;
+  const showBadLink = badLink && linkChecked;
+  const canShare = (raw.trim() !== "" || loc !== null) && !posting;
 
   function askLocation() {
     if (!("geolocation" in navigator)) {
@@ -46,6 +50,11 @@ export default function ShopShare({ ownerId }: { ownerId: string }) {
   async function share(e: React.FormEvent) {
     e.preventDefault();
     if (busy.current || !canShare) return;
+    if (badLink) {
+      setLinkChecked(true);
+      linkField.current?.focus();
+      return;
+    }
     busy.current = true;
     setPosting(true);
     setError(null);
@@ -63,6 +72,10 @@ export default function ShopShare({ ownerId }: { ownerId: string }) {
   return (
     <section className="theme-graphite">
       <form className="shop-card" onSubmit={share} noValidate>
+        <div className="shop-map" aria-hidden>
+          <img src="/places/map.jpg" alt="" />
+          <span className={`shop-pin${locState === "added" ? " is-set" : ""}`}><PinIcon /></span>
+        </div>
         <h1>Where&apos;s your shop?</h1>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
@@ -71,7 +84,7 @@ export default function ShopShare({ ownerId }: { ownerId: string }) {
             Use my location
           </button>
           {locState === "added" && loc && (
-            <p className="shop-note" role="status">Location added (within {Math.round(loc.acc)} m).</p>
+            <p className="shop-note" role="status">Location added.</p>
           )}
           {locState === "off" && <p className="shop-note" role="status">Location is off. Your link is enough.</p>}
         </div>
@@ -79,6 +92,7 @@ export default function ShopShare({ ownerId }: { ownerId: string }) {
         <label>
           Your website, Google Maps or Instagram link
           <input
+            ref={linkField}
             type="text"
             inputMode="url"
             autoCapitalize="none"
@@ -88,11 +102,12 @@ export default function ShopShare({ ownerId }: { ownerId: string }) {
             placeholder="yourshop.com"
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
-            aria-invalid={badLink || undefined}
-            aria-describedby={badLink ? "shop-link-note" : undefined}
+            onBlur={() => setLinkChecked(true)}
+            aria-invalid={showBadLink || undefined}
+            aria-describedby={showBadLink ? "shop-link-note" : undefined}
           />
         </label>
-        {badLink && (
+        {showBadLink && (
           <p id="shop-link-note" className="shop-note" role="status">
             That doesn&apos;t look like a web address. Paste the full link, or clear it.
           </p>

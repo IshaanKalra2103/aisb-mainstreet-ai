@@ -75,6 +75,71 @@ test("owner page follows the active turn, not the old ?turn=", async ({ page }) 
   await expect(page.getByText(/lost the connection/)).toHaveCount(0);
 });
 
+// Turns can start outside the page (an iMessage text): the open page must notice them without a reload.
+const OWNER = "/api/owners/o_test000001";
+
+test("owner page picks up a turn started by text message", async ({ page }) => {
+  let gets = 0;
+  await mockApi(page, (m, p) => {
+    if (p === "/api/health") return { body: { ok: true } };
+    if (p === OWNER) { gets += 1; return { body: { ...BUNDLE, active_turn: gets >= 2 ? "t_cccccccccccc" : null } }; }
+    if (p.startsWith("/api/turns/t_cccccccccccc/poll")) {
+      return { body: { events: [{ type: "status", text: "Setting it up in a cloud browser" }], next: 1, done: false } };
+    }
+  });
+  await page.goto("/b/o_test000001");
+  await expect(page.getByText("Setting it up in a cloud browser")).toBeVisible({ timeout: 15_000 });
+});
+
+test("an approval asked for by text shows up without reopening the link", async ({ page }) => {
+  let gets = 0;
+  const approval = { id: "a_1", tool_id: "chatling", summary: "Create a free Chatling account for the shop.",
+    status: "pending", created_at: "2026-11-17T00:00:00Z" };
+  await mockApi(page, (m, p) => {
+    if (p === "/api/health") return { body: { ok: true } };
+    if (p === OWNER) { gets += 1; return { body: { ...BUNDLE, active_turn: null, approvals: gets >= 2 ? [approval] : [] } }; }
+  });
+  await page.goto("/b/o_test000001");
+  await expect(page.getByText("Waiting for your OK")).toBeVisible({ timeout: 15_000 });
+});
+
+test("the page stops checking after quiet minutes and checks again when the owner comes back", async ({ page }) => {
+  // Any request wakes a stopped agent VM, so an untouched open tab must go quiet before the VM's 20-minute idle stop.
+  await page.clock.install();
+  let gets = 0;
+  await mockApi(page, (m, p) => {
+    if (p === "/api/health") return { body: { ok: true } };
+    if (p === OWNER) { gets += 1; return { body: { ...BUNDLE, active_turn: null } }; }
+  });
+  await page.goto("/b/o_test000001");
+  await expect.poll(() => gets).toBeGreaterThan(0);
+  await page.clock.runFor("11:00");
+  await page.waitForTimeout(500);
+  const settled = gets;
+  await page.clock.runFor("05:00");
+  await page.waitForTimeout(500);
+  expect(gets).toBe(settled);
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await expect.poll(() => gets).toBe(settled + 1);
+});
+
+test("a live job with no pick yet offers to find one", async ({ page }) => {
+  const profile = { name: "Bean & Brick Coffee", business_type: "coffee_shop", city: "Frederick", state: "MD",
+    size: "owner plus 4 staff", website: null, uses: [], pains: [], summary: "A coffee shop.", facts: [] };
+  const needs = { items: [{ need_id: "website-chat", title: "Answer questions on your website", why: "w", est_hours_saved_week: 2 }] };
+  await mockApi(page, (m, p) => {
+    if (p === "/api/health") return { body: { ok: true } };
+    if (p === OWNER) return { body: { ...BUNDLE, profile, needs, active_turn: null } };
+  });
+  await page.goto("/b/o_test000001");
+  await expect(page.getByRole("heading", { name: "Bean & Brick Coffee", level: 2 })).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("heading", { name: "Answer questions on your website" })).toBeVisible();
+  await expect(page.getByText("Want our pick for this job?")).toBeVisible();
+  await expect(page.getByText(/have not compared tools/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Compare tools" })).toBeVisible();
+});
+
 test("chat shows the API's 429 detail", async ({ page }) => {
   await mockApi(page, (m, p) => {
     if (p === "/api/health") return { body: { ok: true } };

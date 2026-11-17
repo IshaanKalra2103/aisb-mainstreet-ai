@@ -8,6 +8,7 @@ const CORS = {
   "access-control-allow-methods": "POST, OPTIONS",
 };
 const LINK_LABEL = "Your website, Google Maps or Instagram link";
+const BAD_LINK = "That doesn't look like a web address. Paste the full link, or clear it.";
 
 /** Record the text of every turn the page posts; answer with `reply` (default: one accepted turn). */
 async function recordTurns(page: Page, reply: { status?: number; body?: unknown; delayMs?: number } = {}) {
@@ -55,13 +56,49 @@ test.describe("with location allowed", () => {
     await page.getByRole("button", { name: "Use my location" }).click();
     await expect(page.getByText("Location added")).toBeVisible();
     await page.getByLabel(LINK_LABEL).fill("@mainstreetshears");
-    await expect(page.getByText("That doesn't look like a web address. Paste the full link, or clear it.")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Share", exact: true })).toBeDisabled();
+    await expect(page.getByText(BAD_LINK)).toHaveCount(0); // still typing
+    await page.getByRole("button", { name: "Share", exact: true }).click();
+    await expect(page.getByText(BAD_LINK)).toBeVisible();
+    await expect(page).toHaveURL(/\/b\/o-test\/shop$/);
+    expect(texts).toHaveLength(0);
     await page.getByLabel(LINK_LABEL).fill("");
+    await expect(page.getByText(BAD_LINK)).toHaveCount(0);
     await page.getByRole("button", { name: "Share", exact: true }).click();
     await expect(page).toHaveURL(/\/b\/o-test$/);
     expect(texts).toEqual(["Here is my shop. Location: 39.57501, -76.99531 (within 20 m). Link: none"]);
   });
+});
+
+test.describe("with an exact location fix", () => {
+  test.use({ geolocation: { latitude: 39.4143, longitude: -77.4105, accuracy: 0 }, permissions: ["geolocation"] });
+
+  test("never says within 0 m", async ({ page }) => {
+    const texts = await recordTurns(page);
+    await page.goto("/b/o-test/shop");
+    await page.getByRole("button", { name: "Use my location" }).click();
+    await expect(page.getByText("Location added.", { exact: true })).toBeVisible();
+    await expect(page.getByText(/0 m/)).toHaveCount(0);
+    await page.getByRole("button", { name: "Share", exact: true }).click();
+    await expect(page).toHaveURL(/\/b\/o-test$/);
+    expect(texts).toEqual(["Here is my shop. Location: 39.41430, -77.41050 (within 1 m). Link: none"]);
+  });
+});
+
+test("no web-address warning while typing; it shows after leaving the field and clears once the link is good", async ({ page }) => {
+  const texts = await recordTurns(page);
+  await page.goto("/b/o-test/shop");
+  const field = page.getByLabel(LINK_LABEL);
+  await field.pressSequentially("mainstreet-demo-sites", { delay: 10 });
+  await expect(page.getByText(BAD_LINK)).toHaveCount(0);
+  await field.blur();
+  await expect(page.getByText(BAD_LINK)).toBeVisible();
+  await field.focus();
+  await field.press("End");
+  await field.pressSequentially(".vercel.app/coffee", { delay: 10 });
+  await expect(page.getByText(BAD_LINK)).toHaveCount(0);
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await expect(page).toHaveURL(/\/b\/o-test$/);
+  expect(texts).toEqual(["Here is my shop. Location: not shared. Link: https://mainstreet-demo-sites.vercel.app/coffee"]);
 });
 
 test("works with the link alone when location is denied", async ({ page }) => {

@@ -33,7 +33,7 @@ export default function TrustBreakdown({ trust }: { trust: Trust }) {
             <span className="whitespace-nowrap">{s.points} / {s.max}</span>
           </div>
           <div className="mt-1 h-2 rounded bg-grey-tint" aria-hidden>
-            <div className="h-2 rounded bg-ink/70" style={{ width: `${s.max ? (s.points / s.max) * 100 : 0}%` }} />
+            <div className="h-2 rounded bg-accent" style={{ width: `${s.max ? (s.points / s.max) * 100 : 0}%` }} />
           </div>
           <p className="mt-2 text-base text-muted">{s.value}</p>
           {s.evidence_url && (

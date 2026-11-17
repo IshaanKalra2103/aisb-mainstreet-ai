@@ -12,6 +12,8 @@ import { Approval, HELPERS, SetupRecordView } from "./SetupPanel";
 import OfflineBanner from "./OfflineBanner";
 import TurnLog from "./TurnLog";
 import ChatBox from "./ChatBox";
+import { placePhoto } from "@/lib/places";
+import ToolLogo from "./ToolLogo";
 import Sheet from "./Sheet";
 
 type Preview = OwnerBundle["previews"][string];
@@ -53,13 +55,25 @@ function previewSrc(p?: Preview): string | null {
   return mediaUrl(p.video_url);
 }
 
-/** The photo at the top of a job card: the tool's preview video, or a pale wash when there is none. */
-function CardPhoto({ src, children }: { src: string | null; children?: React.ReactNode }) {
+/** A Street View photo of the shop's street; it hides itself when there is no photo for the place. */
+function PlaceImg({ src, className }: { src: string; className: string }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  if (failed === src) return null;
+  return <img data-testid="place-photo" src={src} alt="" aria-hidden loading="lazy" decoding="async" onError={() => setFailed(src)} className={className} />;
+}
+
+/**
+ * The photo at the top of a card: the tool's preview video, else a photo of the shop's street, else a plain wash.
+ * A soft shade at the top and bottom keeps the pills on it readable.
+ */
+function CardPhoto({ src, img, className, children }: { src: string | null; img?: string | null; className?: string; children?: React.ReactNode }) {
   return (
-    <div className="relative mx-2.5 mt-2.5 flex-1 min-h-[96px] sm:min-h-[36%] overflow-hidden rounded-[var(--photo-radius)] bg-grey-tint">
+    <div className={`relative mx-2.5 mt-2.5 overflow-hidden rounded-[var(--photo-radius)] bg-grey-tint ${className ?? "flex-1 min-h-[96px] sm:min-h-[36%]"}`}>
+      <div aria-hidden className="absolute inset-0 bg-[radial-gradient(80%_80%_at_0%_0%,var(--wash-a),transparent_70%),radial-gradient(80%_80%_at_100%_100%,var(--wash-b),transparent_70%)]" />
       {src
-        ? <video src={src} muted loop autoPlay playsInline preload="auto" aria-hidden className="h-full w-full object-cover" />
-        : <div aria-hidden className="h-full w-full bg-[radial-gradient(80%_80%_at_0%_0%,var(--wash-a),transparent_70%),radial-gradient(80%_80%_at_100%_100%,var(--wash-b),transparent_70%)]" />}
+        ? <video src={src} muted loop autoPlay playsInline preload="auto" aria-hidden className="relative h-full w-full object-cover" />
+        : img && <PlaceImg src={img} className="absolute inset-0 h-full w-full object-cover" />}
+      {(src || img) && <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgb(0_0_0/.38),transparent_30%,transparent_62%,rgb(0_0_0/.5))]" />}
       {children}
     </div>
   );
@@ -81,6 +95,9 @@ function BigButton({ icon, label, onClick, primary, disabled }: { icon: React.Re
   );
 }
 
+const CHECK_MS = 5000;
+const QUIET_MS = 10 * 60_000;
+
 export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?: OwnerBundle }) {
   const live = !demo;
   const [bundle, setBundle] = useState<OwnerBundle | null>(demo ?? null);
@@ -98,29 +115,51 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   const params = useSearchParams();
   const initialTurn = params.get("turn");
 
-  const refresh = useCallback(async () => {
-    try { setBundle(await getOwner(ownerId)); setLoadError(false); } catch { setLoadError(true); }
+  // What the page last showed, when that last changed, the turn it follows and the turns it saw finish.
+  const lastJson = useRef("");
+  const lastChange = useRef(0);
+  const following = useRef<string | null>(null);
+  const finished = useRef(new Set<string>());
+
+  const load = useCallback(async () => {
+    const b = await getOwner(ownerId);
+    const json = JSON.stringify(b);
+    if (json !== lastJson.current) { lastJson.current = json; lastChange.current = Date.now(); setBundle(b); }
+    setLoadError(false);
+    return b;
   }, [ownerId]);
+
+  const refresh = useCallback(async () => {
+    try { await load(); } catch { setLoadError(true); }
+  }, [load]);
 
   const follow = useCallback((turnId: string) => {
     closeRef.current?.();
+    following.current = turnId;
     setEvents([]);
     setActive(true);
     closeRef.current = streamTurn(turnId, (e) => {
       setEvents((prev) => [...prev, e]);
       if (e.type === "files" || e.type === "done") void refresh();
-      if (e.type === "done" || e.type === "error") setActive(false);
+      if (e.type === "done") finished.current.add(turnId);
+      if (e.type === "done" || e.type === "error") {
+        setActive(false);
+        if (following.current === turnId) following.current = null;
+        lastChange.current = Date.now();
+      }
     });
   }, [refresh]);
 
   useEffect(() => {
     if (!live) return;
     let gone = false;
+    lastChange.current = Date.now();
     health().then((ok) => { if (!gone) setOffline(!ok); });
     // After the first load, follow the turn that is running now; ?turn= can be an old one after a reload.
     getOwner(ownerId).then(
       (b) => {
         if (gone) return;
+        lastJson.current = JSON.stringify(b);
         setBundle(b); setLoadError(false);
         const turn = b.active_turn ?? initialTurn;
         if (turn) follow(turn);
@@ -133,6 +172,51 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
     );
     return () => { gone = true; closeRef.current?.(); };
   }, [live, ownerId, follow, initialTurn]);
+
+  // Turns also start outside this page (the owner texts us). While the page is open, visible and not following a
+  // turn, check every few seconds for new records or a running turn. Every request wakes a stopped agent VM, so the
+  // checks stop after QUIET_MS without a change (well inside the VM's 20-minute idle stop) and start again when the
+  // owner comes back to the page.
+  useEffect(() => {
+    if (!live) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let gone = false;
+    let lastBack = 0;
+    const visible = () => document.visibilityState === "visible";
+    const check = async () => {
+      try {
+        const turn = (await load()).active_turn;
+        if (!gone && turn && turn !== following.current && !finished.current.has(turn)) follow(turn);
+      } catch { /* keep what is shown; the next check tries again */ }
+    };
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        if (gone) return;
+        if (!following.current) {
+          if (Date.now() - lastChange.current >= QUIET_MS) return; // quiet: wait for the owner to come back
+          if (visible()) await check();
+        }
+        if (!gone) schedule();
+      }, CHECK_MS);
+    };
+    const back = () => {
+      if (!visible() || Date.now() - lastBack < 2000) return;
+      lastBack = Date.now();
+      lastChange.current = Date.now();
+      void check();
+      schedule();
+    };
+    schedule();
+    document.addEventListener("visibilitychange", back);
+    window.addEventListener("focus", back);
+    return () => {
+      gone = true;
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", back);
+      window.removeEventListener("focus", back);
+    };
+  }, [live, load, follow]);
 
   const send = useCallback(async (text: string) => {
     const id = await startTurn(ownerId, text);
@@ -226,7 +310,6 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
     { label: "Show me a preview", text: `Show me a preview of the best tool for ${firstNeed?.title ?? "my first job"}` },
     { label: "Set it up for me", text: "Set it up for me" },
   ];
-  const firstPreviewSrc = previewSrc(Object.values(bundle?.previews ?? {})[0]);
 
   function cardTitle(c: CardDef): string {
     switch (c.kind) {
@@ -248,7 +331,12 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   }
   function cardSrc(c: CardDef): string | null {
     if (c.kind === "job") return previewSrc(c.preview);
-    if (c.kind === "profile") return firstPreviewSrc;
+    return null;
+  }
+  /** The street photo for a card: the shop front on the profile, another angle of the street on each job. */
+  function cardImg(c: CardDef): string | null {
+    if (c.kind === "profile") return placePhoto(ownerId, profile, 0);
+    if (c.kind === "job") return placePhoto(ownerId, profile, c.n);
     return null;
   }
 
@@ -259,7 +347,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
       const compare = bundle?.compares[c.need.need_id];
       return (
         <div className="h-full flex flex-col">
-          <CardPhoto src={src}>
+          <CardPhoto src={src} img={cardImg(c)}>
             <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-3">
               <Pill onPhoto>Job {c.n} of {items.length}</Pill>
               {src && <Pill onPhoto>AI-generated preview</Pill>}
@@ -274,7 +362,11 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
             {tool ? (
               <div className="mt-2 sm:mt-3 rounded-2xl bg-raised border border-line/70 px-4 py-2.5 sm:py-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                  <p className="text-base"><span className="text-muted">Our pick:</span> <strong>{tool.name}</strong></p>
+                  <p className="flex items-center gap-2 text-base">
+                    <span className="text-muted">Our pick:</span>
+                    <ToolLogo url={tool.url} className="size-5 rounded-[5px] bg-[#c8c9c4] p-[2px]" />
+                    <strong>{tool.name}</strong>
+                  </p>
                   <p className="text-base text-muted">{priceLabel(tool)}</p>
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -288,7 +380,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
               </div>
             ) : (
               <div className="mt-3 text-base text-muted">
-                <p>{live ? "We have not compared tools for this job yet." : "We did not compare tools for this job in this example."}</p>
+                <p>{live ? "Want our pick for this job? We will compare the vetted tools and pick one." : "We did not compare tools for this job in this example."}</p>
                 {live && <button type="button" className="chip-btn mt-2"
                   onClick={() => send(`Compare tools for ${c.need.title}`).catch((e) => setActionError(e instanceof ApiError ? e.message : "We could not reach our agent just now."))}>
                   Compare tools</button>}
@@ -309,11 +401,17 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
       );
     }
     if (c.kind === "profile" && profile) {
+      const photo = cardImg(c);
       return (
         <div className="h-full flex flex-col">
-          <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-5 sm:px-6 sm:pt-6">
-            <Pill>{cardTitle(c)}</Pill>
-            <h2 className="mt-5 text-[2.1rem] sm:text-[2.4rem] font-semibold leading-[1.05]">{profile.name}</h2>
+          {photo && (
+            <CardPhoto src={null} img={photo} className="shrink-0 h-[34%] min-h-[150px]">
+              <div className="absolute left-3 top-3"><Pill onPhoto>{cardTitle(c)}</Pill></div>
+            </CardPhoto>
+          )}
+          <div className={`flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 ${photo ? "pt-4" : "pt-5 sm:pt-6"}`}>
+            {!photo && <Pill>{cardTitle(c)}</Pill>}
+            <h2 className={`${photo ? "" : "mt-5 "}text-[2.1rem] sm:text-[2.4rem] font-semibold leading-[1.05]`}>{profile.name}</h2>
             <p className="mt-2 text-lg text-muted">
               {BUSINESS_TYPE_LABELS[profile.business_type] ?? profile.business_type} in {profile.city}, {profile.state}
             </p>
@@ -458,6 +556,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
               <ol className="mt-3 grid gap-3">
                 {cards.map((c, i) => {
                   const thumb = cardSrc(c);
+                  const still = thumb ? null : cardImg(c);
                   return (
                     <li key={c.key}>
                       <motion.button layoutId={c.key} transition={spring} type="button"
@@ -467,7 +566,9 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
                         <span className="relative flex min-h-[88px] items-center gap-4 px-3 py-3">
                           {thumb
                             ? <video src={`${thumb}#t=0.5`} muted playsInline preload="metadata" aria-hidden className="h-16 w-16 shrink-0 rounded-2xl object-cover bg-grey-tint" />
-                            : <span aria-hidden className="h-16 w-16 shrink-0 rounded-2xl bg-grey-tint grid place-items-center font-display text-xl font-medium tabular-nums text-muted">{i + 1}</span>}
+                            : still
+                              ? <img src={still} alt="" aria-hidden loading="lazy" className="h-16 w-16 shrink-0 rounded-2xl object-cover bg-grey-tint" />
+                              : <span aria-hidden className="h-16 w-16 shrink-0 rounded-2xl bg-grey-tint grid place-items-center font-display text-xl font-medium tabular-nums text-muted">{i + 1}</span>}
                           <span className="min-w-0 flex-1">
                             <span className="block text-lg font-semibold leading-tight">{cardTitle(c)}</span>
                             <span className={`block text-base ${"text-muted"}`}>{cardSub(c)}</span>

@@ -31,7 +31,7 @@
   --font-sans: var(--font-source), system-ui, sans-serif;
 }
 
-/* Surface tokens the light look hard-codes; graphite.css overrides them on the owner routes. */
+/* Light fallbacks; graphite.css overrides them on every page (the root layout renders .owner-theme). */
 :root {
   --wash-a: #e3f1ec;
   --wash-b: #e6edf8;

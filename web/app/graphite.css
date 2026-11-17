@@ -1,8 +1,8 @@
 /*
   Copied from .gather/results-page/preview/tokens.css. The tokens apply to <body> (and so to the site header and footer)
-  whenever the page holds .owner-theme, which app/b/[ownerId]/layout.tsx renders: the share page and the owner page.
-  Landing, examples, catalog and tool pages never render it, so they keep the light look. Fonts point at the faces
-  layout.tsx loads through next/font.
+  whenever the page holds .owner-theme. The root layout renders it around every page, so the whole site (landing,
+  examples, catalog, tool pages, the share page and the owner page) is one graphite + lime product. Fonts point at the
+  faces layout.tsx loads through next/font.
 
   MainStreet results page tokens (preview sheet, 2026-11-16, round 2: graphite + lime, picked from palettes/f-graphite-lime.png).
   Icons: Tabler Icons 3.x outline, 24px grid, stroke 2 drawn at 1.75 next to 400-weight text (better-ui icon stroke rule).
@@ -141,6 +141,56 @@ body:has(.owner-theme) ::selection { background: var(--color-accent); color: var
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+}
+/* A dark map of a main street with a lime pin: what the owner is about to share. */
+.theme-graphite .shop-map {
+  position: relative;
+  height: 168px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-line, rgb(255 255 255 / 0.08));
+  background: var(--color-surface-2, #1b1c1f);
+}
+.theme-graphite .shop-map img { width: 100%; height: 100%; object-fit: cover; object-position: 55% 45%; display: block; }
+.theme-graphite .shop-map::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(60% 70% at 50% 50%, transparent 40%, var(--color-bg) 100%);
+}
+.theme-graphite .shop-pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  box-shadow: 0 0 0 8px var(--color-accent-tint), 0 8px 24px rgb(0 0 0 / 0.45);
+  transition: transform var(--dur-3) var(--ease-drop);
+}
+.theme-graphite .shop-pin::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 999px;
+  border: 2px solid var(--color-accent);
+  opacity: 0;
+  animation: shop-ping 2.4s var(--ease-out) infinite;
+}
+.theme-graphite .shop-pin.is-set { transform: scale(1.12); }
+@keyframes shop-ping {
+  0% { transform: scale(0.8); opacity: 0.7; }
+  70%, 100% { transform: scale(1.9); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-graphite .shop-pin::before { animation: none; }
+  .theme-graphite .shop-pin { transition: none; }
 }
 .theme-graphite h1 {
   font-family: var(--font-display);

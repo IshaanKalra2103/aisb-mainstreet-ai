@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { CompareOption, Tool } from "@/lib/types";
 import { INTEGRATION_LABELS, priceLabel } from "@/lib/catalog";
 import TrustBreakdown, { BadgePill } from "./TrustBreakdown";
+import ToolLogo from "./ToolLogo";
 
 interface Props {
   tool: Tool;
@@ -25,7 +26,10 @@ export default function ToolCard({ tool, option, recommended, uses = [], detailL
     >
       {recommended && <p className="self-start rounded-full bg-ok-tint px-3 py-0.5 text-sm font-semibold text-ok-ink">Our pick for you</p>}
       <div className="flex items-start justify-between gap-3">
-        <h3 className="text-xl font-semibold">{tool.name}</h3>
+        <h3 className="flex items-center gap-2.5 text-xl font-semibold">
+          <ToolLogo url={tool.url} className="size-8 shrink-0 rounded-lg bg-[#c8c9c4] p-[3px]" />
+          {tool.name}
+        </h3>
         <span data-testid="price" className="font-semibold whitespace-nowrap">{priceLabel(tool)}</span>
       </div>
       <p>{option?.fit_sentence ?? tool.what_it_does}</p>

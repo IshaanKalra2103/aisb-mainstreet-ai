@@ -1,8 +1,6 @@
-import "@/app/graphite.css";
-
 /**
- * The owner's journey (share page, owner page) is one product in the graphite + lime look. The marker class
- * switches the tokens on <body> (graphite.css), so the site header and footer follow. Other routes stay light.
+ * The owner's journey (share page, owner page). The root layout already renders the .owner-theme marker around every
+ * page (graphite + lime, graphite.css); this keeps the owner routes marked even if that ever changes.
  */
 export default function OwnerLayout({ children }: LayoutProps<"/b/[ownerId]">) {
   return <div className="owner-theme">{children}</div>;

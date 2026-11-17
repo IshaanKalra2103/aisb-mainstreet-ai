@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Source_Sans_3 } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
+import "./graphite.css";
 import { APP_NAME, TAGLINE } from "@/lib/brand";
 import NavLinks from "@/components/NavLinks";
 
@@ -12,6 +13,9 @@ export const metadata: Metadata = {
   title: { default: APP_NAME, template: `%s | ${APP_NAME}` },
   description: TAGLINE,
   openGraph: { title: APP_NAME, description: TAGLINE, siteName: APP_NAME, type: "website" },
+  // Link cards (iMessage, Slack) show the big image only for summary_large_image; og:image needs an absolute URL.
+  twitter: { card: "summary_large_image" },
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://mainstreet-ai-five.vercel.app"),
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -26,7 +30,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <NavLinks />
           </div>
         </header>
-        <main className="flex-1">{children}</main>
+        {/* One look for the whole site: graphite + lime (graphite.css switches the tokens on <body> when it holds .owner-theme). */}
+        <main className="flex-1"><div className="owner-theme">{children}</div></main>
         <footer className="border-t border-line/70 mt-16">
           <div className="mx-auto max-w-5xl px-4 py-8 text-soft text-base">
             {APP_NAME} is a prototype built for the AI for Small Business hackathon. Scores marked simulated come from
