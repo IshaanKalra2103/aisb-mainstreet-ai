@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MainStreet AI - What we show</title>
+<style>
+  :root {
+    --bg: #1c1d22; --tile: #ffffff; --ink: #1d1d1f; --muted: #6e6e73; --faint: #a1a1a6;
+    --graphite: #1c1d21; --lime: #d9fb3c; --lime-ink: #2f3a00;
+    --imsg-blue: #0a84ff; --imsg-gray: #e9e9eb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); }
+  body { font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .canvas { width: 1920px; height: 1080px; padding: 24px; display: grid; gap: 18px;
+    grid-template-columns: 560px 520px 1fr; grid-template-rows: 420px 1fr; transform-origin: 0 0; }
+  .tile { background: var(--tile); border-radius: 30px; position: relative; overflow: hidden; }
+  .label { font-size: 15px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+
+  /* title */
+  .title { padding: 40px 44px; display: flex; flex-direction: column; }
+  .title .brand { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 600; }
+  .title .brand img { width: 40px; height: 40px; border-radius: 10px; }
+  .title h1 { font-size: 66px; line-height: 1.02; letter-spacing: -0.035em; font-weight: 700; margin-top: 34px; }
+  .title h1 span { color: var(--faint); }
+  .title p { font-size: 22px; line-height: 1.38; color: var(--muted); margin-top: 18px; letter-spacing: -0.01em; }
+  .title p b { color: var(--ink); font-weight: 600; }
+
+  /* door labels */
+  .door-head { position: absolute; top: 28px; left: 32px; right: 32px; display: flex; justify-content: space-between; align-items: center; z-index: 2; }
+  .door-head h2 { font-size: 30px; letter-spacing: -0.025em; font-weight: 700; }
+  .door-head .label { font-size: 13px; }
+
+  /* iMessage */
+  .imsg { background: linear-gradient(180deg, #ffffff 0%, #fbfbfd 100%); }
+  .thread { position: absolute; left: 32px; right: 32px; top: 78px; display: flex; flex-direction: column; gap: 7px; font-size: 16.5px; line-height: 1.3; }
+  .b { max-width: 78%; padding: 8px 14px; border-radius: 20px; }
+  .b.me { align-self: flex-end; background: var(--imsg-blue); color: #fff; border-bottom-right-radius: 6px; }
+  .b.it { align-self: flex-start; background: var(--imsg-gray); color: #111; border-bottom-left-radius: 6px; }
+  .card { align-self: flex-start; width: 78%; border-radius: 18px; overflow: hidden; background: var(--imsg-gray); display: flex; align-items: stretch; }
+  .card img { width: 96px; object-fit: cover; }
+  .card div { padding: 9px 12px; }
+  .card b { display: block; font-size: 15.5px; }
+  .card span { font-size: 13px; color: var(--muted); }
+  .poll { align-self: flex-start; width: 78%; border-radius: 18px; background: var(--imsg-gray); padding: 10px 14px 10px; }
+  .poll b { font-size: 15.5px; display: block; margin-bottom: 8px; }
+  .opt { display: flex; align-items: center; gap: 9px; background: #fff; border-radius: 11px; padding: 6px 10px; font-size: 14.5px; }
+  .opt + .opt { margin-top: 6px; }
+  .opt i { width: 17px; height: 17px; border-radius: 50%; border: 1.6px solid #c7c7cc; flex: none; }
+  .opt.on i { border-color: var(--imsg-blue); background: var(--imsg-blue); box-shadow: inset 0 0 0 3px #fff; }
+
+  /* or badge */
+  .or { position: absolute; z-index: 5; left: calc(24px + 560px + 18px + 520px + 9px); top: calc(24px + 210px); transform: translate(-50%, -50%);
+    width: 58px; height: 58px; border-radius: 50%; background: var(--graphite); color: #fff; display: grid; place-items: center;
+    font-size: 19px; font-weight: 700; box-shadow: 0 0 0 7px var(--bg); }
+
+  /* website */
+  .web { background: linear-gradient(180deg, #ffffff 0%, #f4f4f6 100%); }
+  .browser { position: absolute; left: 40px; right: 40px; top: 92px; border-radius: 16px; overflow: hidden; background: #2a2b30;
+    box-shadow: 0 24px 50px -18px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,0.08); }
+  .bar { height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 14px; background: #2a2b30; }
+  .bar i { width: 11px; height: 11px; border-radius: 50%; background: #55565c; }
+  .bar span { margin-left: 16px; flex: 1; height: 22px; border-radius: 7px; background: #1c1d21; color: #9a9ba1; font-size: 12.5px; display: flex; align-items: center; justify-content: center; }
+  .browser img { display: block; width: 100%; }
+
+  /* steps */
+  .steps { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; }
+  .step { padding: 30px 30px 0; display: flex; flex-direction: column; }
+  .step .top { display: flex; align-items: center; gap: 12px; }
+  .num { width: 34px; height: 34px; border-radius: 50%; background: var(--graphite); color: var(--lime); display: grid; place-items: center; font-size: 17px; font-weight: 700; flex: none; }
+  .step h3 { font-size: 27px; letter-spacing: -0.025em; font-weight: 700; }
+  .step p { font-size: 16.5px; line-height: 1.32; color: var(--muted); margin-top: 10px; min-height: 44px; }
+  .room { align-self: flex-start; margin-top: 12px; font-size: 15px; font-weight: 600; padding: 6px 12px 6px 10px; border-radius: 99px; background: var(--lime); color: var(--lime-ink); display: inline-flex; gap: 7px; align-items: center; }
+  .room::before { content: ""; width: 16px; height: 16px; border-radius: 50%; background: var(--lime-ink); mask: radial-gradient(circle at 50% 34%, #000 22%, transparent 23%), radial-gradient(ellipse 48% 30% at 50% 100%, #000 98%, transparent 100%); -webkit-mask: radial-gradient(circle at 50% 34%, #000 22%, transparent 23%), radial-gradient(ellipse 48% 30% at 50% 100%, #000 98%, transparent 100%); }
+  .phone { position: absolute; left: 50%; transform: translateX(-50%); bottom: -30px; width: 300px; height: 430px; border-radius: 40px 40px 0 0;
+    background: #0b0b0d; padding: 9px 9px 0; box-shadow: 0 20px 40px -20px rgba(0,0,0,0.45); }
+  .phone img { width: 100%; height: 100%; object-fit: cover; object-position: top; border-radius: 32px 32px 0 0; display: block; }
+</style>
+</head>
+<body>
+<div class="canvas" id="c">
+
+  <div class="tile title">
+    <div class="brand"><img src="assets/icon.png" alt="">MainStreet AI</div>
+    <h1>Two doors,<br>one assistant.</h1>
+    <p>Text it on iMessage or use the website. <b>Same assistant, same shop, same answers.</b> Nothing happens until the owner says yes.</p>
+  </div>
+
+  <div class="tile imsg">
+    <div class="door-head"><h2>Text it</h2><span class="label">iMessage</span></div>
+    <div class="thread">
+      <div class="b me">I run a hair salon in Westminster, MD</div>
+      <div class="b it">Found 4 jobs I can take off your plate. Online booking is the big one, about 4 hours a week.</div>
+      <div class="card"><img src="assets/booking.jpg" alt=""><div><b>Main Street Shears</b><span>mainstreet-ai-five.vercel.app</span></div></div>
+      <div class="poll"><b>Set up Square for you?</b>
+        <div class="opt on"><i></i>Yes, set it up</div>
+        <div class="opt"><i></i>Not now</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tile web">
+    <div class="door-head"><h2>Or use the website</h2><span class="label">Any browser</span></div>
+    <div class="browser">
+      <div class="bar"><i></i><i></i><i></i><span>mainstreet-ai-five.vercel.app</span></div>
+      <img src="assets/site.jpg" alt="">
+    </div>
+  </div>
+
+  <div class="or">or</div>
+
+  <div class="steps">
+    <div class="tile step">
+      <div class="top"><span class="num">1</span><h3>What we found</h3></div>
+      <p>Facts about the shop, each one linked to its source.</p>
+      <span class="room">Is that right?</span>
+      <div class="phone"><img src="assets/s1-found.jpg" alt=""></div>
+    </div>
+    <div class="tile step">
+      <div class="top"><span class="num">2</span><h3>Why we trust it</h3></div>
+      <p>Six checks with evidence, then a person signs off.</p>
+      <span class="room">Which would you trust?</span>
+      <div class="phone"><img src="assets/s2-trust.jpg" alt=""></div>
+    </div>
+    <div class="tile step">
+      <div class="top"><span class="num">3</span><h3>See it at work</h3></div>
+      <p>A 6-second clip of the tool in a shop like theirs.</p>
+      <span class="room">Would you use it?</span>
+      <div class="phone"><img src="assets/s3-preview.jpg" alt="" style="object-position: bottom"></div>
+    </div>
+    <div class="tile step">
+      <div class="top"><span class="num">4</span><h3>Yes or no?</h3></div>
+      <p>Tap on the site or vote in the text thread.</p>
+      <span class="room">Vote, then a judge taps</span>
+      <div class="phone"><img src="assets/s4-card.jpg" alt=""></div>
+    </div>
+    <div class="tile step">
+      <div class="top"><span class="num">5</span><h3>It sets it up</h3></div>
+      <p>Signs up on the free plan, then hands the human check over.</p>
+      <span class="room">A judge does the check</span>
+      <div class="phone"><img src="assets/s5-setup.jpg" alt=""></div>
+    </div>
+  </div>
+
+</div>
+<script>
+  function fit() {
+    if (location.search.includes('raw')) return;
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    const c = document.getElementById('c'); c.style.transform = `scale(${s})`;
+    document.body.style.overflow = 'hidden';
+  }
+  addEventListener('resize', fit); fit();
+</script>
+</body>
+</html>

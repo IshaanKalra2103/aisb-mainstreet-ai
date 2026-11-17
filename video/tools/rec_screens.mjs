@@ -4,7 +4,7 @@
 // Desktop: 1440x810 CSS at DPR 4/3 -> 1920x1080 video. Phone: 390x844 at DPR 3.
 import { createRequire } from "node:module";
 import { mkdirSync, renameSync, writeFileSync } from "node:fs";
-const { chromium } = createRequire("/Users/ishaankalra/Documents/projects/aisb-hackathon/web/package.json")("@playwright/test");
+const { chromium } = createRequire("/Users/ishaankalra/Documents/projects/hackathons/aisb-hackathon/web/package.json")("@playwright/test");
 
 const args = process.argv.slice(2);
 const take = args[0];
@@ -12,7 +12,7 @@ const phone = args.includes("--phone");
 const base = args.includes("--base") ? args[args.indexOf("--base") + 1] : "https://mainstreet-ai-five.vercel.app";
 const API = "http://127.0.0.1:8787";
 const BEAN = "o_392fa2d482";
-const OUT = args.includes("--out") ? args[args.indexOf("--out") + 1] : "/Users/ishaankalra/Documents/projects/aisb-hackathon/footage/screens/";
+const OUT = args.includes("--out") ? args[args.indexOf("--out") + 1] : "/Users/ishaankalra/Documents/projects/hackathons/aisb-hackathon/footage/screens/";
 mkdirSync(OUT, { recursive: true });
 
 const big = args.includes("--big");

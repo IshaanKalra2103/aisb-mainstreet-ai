@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MainStreet AI one-pager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f3f5f7; --card: #ffffff; --ink: #111214; --muted: #5f646b; --faint: #8d939a;
+    --line: #e3e6ea; --accent: #1f9d6b; --accent-dark: #157a52; --accent-tint: #e7f6ef;
+    --amber-tint: #fdf3dc; --amber-ink: #835400;
+  }
+  @page { size: Letter; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    width: 8.5in; height: 11in; padding: 0.38in 0.5in 0.3in;
+    background: var(--card); color: var(--ink);
+    font: 8.9pt/1.34 "Source Sans 3", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    display: flex; flex-direction: column; gap: 7pt; overflow: hidden;
+  }
+  h1, h2, h3, p { margin: 0; }
+  a { color: var(--accent-dark); text-decoration: none; }
+  .eyebrow { font-size: 7.6pt; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  h2 { font-size: 8pt; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--accent-dark); margin-bottom: 5pt; }
+
+  /* header */
+  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 18pt;
+    padding-bottom: 8pt; border-bottom: 1.5px solid var(--ink); }
+  header h1 { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 24pt; letter-spacing: -.02em; line-height: 1; margin: 3pt 0 4pt; }
+  header .tag { font-size: 11pt; line-height: 1.3; }
+  header .tag b { color: var(--accent-dark); }
+  header .meta { text-align: right; font-size: 8.2pt; color: var(--muted); line-height: 1.5; white-space: nowrap; }
+  header .meta a { font-weight: 700; font-size: 9pt; }
+
+  /* what */
+  .what p.lead { font-size: 9.6pt; line-height: 1.38; }
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6pt; margin-top: 6pt; }
+  .step { background: var(--paper); border-radius: 7pt; padding: 5pt 7pt; }
+  .step .n { display: inline-grid; place-items: center; width: 13pt; height: 13pt; border-radius: 50%;
+    background: var(--accent); color: #fff; font-size: 7.4pt; font-weight: 700; margin-right: 4pt; vertical-align: 1pt; }
+  .step b { font-size: 8.9pt; }
+  .step p { color: var(--muted); font-size: 8pt; line-height: 1.3; margin-top: 2pt; }
+
+  /* two columns */
+  .cols { display: grid; grid-template-columns: 1fr 1.18fr; gap: 16pt; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6pt; }
+  .stat { border: 1px solid var(--line); border-radius: 7pt; padding: 4.5pt 7pt; }
+  .stat .big { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 14pt; line-height: 1.05; }
+  .stat p { font-size: 7.9pt; line-height: 1.28; margin-top: 1pt; }
+  .stat .src { color: var(--faint); font-size: 6.6pt; margin-top: 1pt; }
+  .so { margin-top: 6pt; background: var(--accent-tint); border-radius: 7pt; padding: 5pt 8pt; font-size: 8.6pt; line-height: 1.32; }
+  .so b { color: var(--accent-dark); }
+
+  .why dl { margin: 0; display: grid; gap: 3.6pt; }
+  .why .row { display: grid; grid-template-columns: 0.95in 1fr; gap: 7pt; padding-bottom: 3.6pt; border-bottom: 1px solid var(--line); }
+  .why .row:last-child { border-bottom: 0; padding-bottom: 0; }
+  .why dt { font-weight: 700; font-size: 8.3pt; line-height: 1.25; }
+  .why dd { margin: 0; font-size: 8.1pt; line-height: 1.3; }
+  .why dd i { color: var(--muted); }
+
+  /* table */
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 8.1pt; line-height: 1.26; }
+  th, td { text-align: left; vertical-align: top; padding: 3pt 6pt; border-bottom: 1px solid var(--line); }
+  thead th { font-size: 7pt; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 700; border-bottom: 1.5px solid var(--ink); }
+  tbody th { font-weight: 700; width: 1.05in; }
+  td.us, th.us { background: var(--accent-tint); }
+  thead th.us { color: var(--accent-dark); border-top-left-radius: 6pt; border-top-right-radius: 6pt; }
+  td.us { font-weight: 600; }
+  tbody tr:last-child td, tbody tr:last-child th { border-bottom: 0; }
+  tbody tr:last-child td.us { border-bottom-left-radius: 6pt; border-bottom-right-radius: 6pt; }
+  td.no { color: var(--muted); }
+
+  /* bottom */
+  .bottom { display: grid; grid-template-columns: 1.16fr 1fr; gap: 16pt; }
+  .funnel { display: flex; align-items: stretch; gap: 0; margin: 2pt 0 6pt; }
+  .funnel div { flex: 1; text-align: center; padding: 3.5pt 2pt; background: var(--paper); }
+  .funnel div:first-child { border-radius: 7pt 0 0 7pt; }
+  .funnel div:last-child { border-radius: 0 7pt 7pt 0; background: var(--accent); color: #fff; }
+  .funnel div + div { border-left: 2px solid #fff; }
+  .funnel .big { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 13pt; line-height: 1.05; display: block; }
+  .funnel small { font-size: 7pt; line-height: 1.2; display: block; margin-top: 1pt; }
+  .funnel div:not(:last-child) small { color: var(--muted); }
+  .built p { font-size: 8pt; line-height: 1.3; }
+  .built p + p { margin-top: 3pt; }
+  .moat { background: var(--ink); color: #fff; border-radius: 9pt; padding: 7pt 10pt; }
+  .moat h2 { color: #8fe0bd; }
+  .moat p { font-size: 8.6pt; line-height: 1.34; }
+  .moat ul { margin: 3pt 0 0; padding-left: 12pt; font-size: 8.3pt; line-height: 1.32; }
+  .moat li { margin: 1pt 0; }
+
+  footer { margin-top: auto; padding-top: 6pt; border-top: 1px solid var(--line); color: var(--faint); font-size: 6.3pt; line-height: 1.3; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Team Forge · AI for Small Business Hack-a-thon, Fall 2026 · Finalist</div>
+    <h1>MainStreet AI</h1>
+    <p class="tag">An <b>Angie's List for AI tools</b> for Main Street small businesses.<br>We check every tool, then set the one you pick up for you.</p>
+  </div>
+  <div class="meta">
+    <a href="https://mainstreet-ai-five.vercel.app">mainstreet-ai-five.vercel.app</a><br>
+    Ishaan Kalra &amp; Dylan<br>
+    Finals: Tue Nov 17, 7:00 pm, VMH 1505
+  </div>
+</header>
+
+<section class="what">
+  <h2>What it is</h2>
+  <p class="lead">An owner pastes their website, or types one line like "2-van HVAC company in Frederick, MD". An AI agent reads the business, picks the jobs AI could take off their plate, compares tools from a catalog a person has checked, and only after the owner says yes, signs up and sets one up. Same agent on the web and over iMessage.</p>
+  <div class="steps">
+    <div class="step"><span class="n">1</span><b>Reads your business</b><p>Type, size, town, the software you already use, what slows you down.</p></div>
+    <div class="step"><span class="n">2</span><b>Finds the jobs</b><p>3 to 5 jobs from a fixed list of 9, ranked by hours saved a week.</p></div>
+    <div class="step"><span class="n">3</span><b>Compares tools</b><p>2 to 3 checked tools per job: price, setup, works-with, trust score.</p></div>
+    <div class="step"><span class="n">4</span><b>Sets it up</b><p>Only on your yes, free plan, in a cloud browser. Or a local helper.</p></div>
+  </div>
+</section>
+
+<div class="cols">
+  <section>
+    <h2>Why it needs to exist</h2>
+    <div class="stats">
+      <div class="stat"><div class="big">19.8%</div><p>of U.S. businesses used AI in the past two weeks.</p><div class="src">Census BTOS, May 2026</div></div>
+      <div class="stat"><div class="big">22%</div><p>of firms not planning to use AI don't know what it can do (65%: "doesn't apply").</p><div class="src">Census CES WP 26-25, early 2026</div></div>
+      <div class="stat"><div class="big">50,000+</div><p>AI tools on one directory, where makers pay for placement.</p><div class="src">There's An AI For That, 2026</div></div>
+      <div class="stat"><div class="big">Relay.app</div><p>shut down Aug 2026 and deleted all customer workflows.</p><div class="src">TechCrunch, Aug 17, 2026</div></div>
+    </div>
+    <p class="so"><b>Our read:</b> owners don't say AI is too hard. They don't know what fits or what to trust. It's a <b>finding and trust problem</b>, and setup is where everyone drops off.</p>
+  </section>
+
+  <section class="why">
+    <h2>Why it's built the way it is</h2>
+    <dl>
+      <div class="row"><dt>Start from a website, not a search box</dt><dd>Owners don't know the AI words. They know their business, so we start there. <i>No site? One sentence works.</i></dd></div>
+      <div class="row"><dt>A fixed list of 9 jobs</dt><dd>Real pains (27% of home-services calls go unanswered, Invoca). The agent can't invent a category.</dd></div>
+      <div class="row"><dt>Trust score, not star ratings</dt><dd>Six checks out of 100, each linked to evidence: who's behind it, age, data handling, public prices, independent reviews, still shipping. Verified = 75+ and a person's sign-off. Unknown builders stay hidden.</dd></div>
+      <div class="row"><dt>The agent does the setup</dt><dd>Setup is the drop-off, so we do it. Never enters a card; hands CAPTCHAs and phone checks to the owner.</dd></div>
+      <div class="row"><dt>"Yes" is enforced in code</dt><dd>A website can tell an agent to ignore its rules, so the owner's decision lives where the agent can only read it. No yes for that exact tool, no sign-up.</dd></div>
+      <div class="row"><dt>Phone first, people too</dt><dd>Owners live on their phones, so iMessage. Want a person? Maryland SBDC, SCORE, SBA Baltimore.</dd></div>
+    </dl>
+  </section>
+</div>
+
+<section>
+  <h2>How it's different</h2>
+  <table>
+    <thead>
+      <tr><th></th><th>Review sites (G2, Capterra)</th><th>AI directories (TAAFT, Product Hunt)</th><th class="us">MainStreet AI</th></tr>
+    </thead>
+    <tbody>
+      <tr><th>Built for</th><td>Software buyers and sellers</td><td>Tech audiences and makers</td><td class="us">Diners, coffee shops, HVAC, salons: starts from your website</td></tr>
+      <tr><th>How tools are judged</th><td>User reviews</td><td>Staff review of submissions, upvotes</td><td class="us">6 evidence checks + a person's sign-off, weekly</td></tr>
+      <tr><th>Paid placement</th><td>Sponsored profiles, pay-per-click</td><td>Paid listings, pay-per-click</td><td class="us">None: picks come from fit and trust score</td></tr>
+      <tr><th>Fit to your setup</th><td class="no">Generic</td><td class="no">Generic</td><td class="us">Matched to your Square, Toast, QuickBooks...</td></tr>
+      <tr><th>After you pick</th><td class="no">You're on your own</td><td class="no">You're on your own</td><td class="us">The agent sets it up with your yes, or a free local helper</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<div class="bottom">
+  <section class="built">
+    <h2>Real, not a wireframe</h2>
+    <div class="funnel">
+      <div><span class="big">261</span><small>candidate tools found</small></div>
+      <div><span class="big">207</span><small>websites read</small></div>
+      <div><span class="big">109</span><small>real tools scored</small></div>
+      <div><span class="big">85</span><small>approved by a person</small></div>
+    </div>
+    <p>Pipeline: discover, read, extract, vet, human review. Reruns weekly so the catalog grows. 24 unknown-builder tools kept out; every business type has 2+ approved tools per job.</p>
+    <p>Stack: Next.js on Vercel, FastAPI, each agent turn in a locked-down container (Claude Code, six tools, no open web, spend caps), TinyFish web + cloud browser, AgentMail inboxes, iMessage relay.</p>
+  </section>
+
+  <section class="moat">
+    <h2>Why can't OpenAI or Anthropic do this overnight?</h2>
+    <p>They could build the chat. The chat isn't the hard part:</p>
+    <ul>
+      <li>a catalog a person checks against evidence, every week</li>
+      <li>Maryland partners owners already trust (SBDC, SCORE, SBA)</li>
+      <li>actually setting the tool up, safely, for the owner</li>
+      <li>being accountable to owners in our own state</li>
+    </ul>
+  </section>
+</div>
+
+<footer>
+  Sources: Census Bureau, AI Use at U.S. Businesses (BTOS), May 2026; Census CES WP 26-25; There's An AI For That, About; TechCrunch, Relay shuts down, Aug 17, 2026; Invoca, May 2024 (vendor data); G2, Capterra, Product Hunt public pages. Catalog numbers: mscatalog stats. Full list in docs/research.md.
+</footer>
+
+</body>
+</html>

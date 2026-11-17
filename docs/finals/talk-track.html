@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MainStreet AI - Finals talk track</title>
+<style>
+  @page { size: Letter; margin: 0.42in 0.45in; }
+  :root {
+    --ink: #16171a; --muted: #5d636b; --faint: #8d939a; --line: #e2e5e9;
+    --green: #1f9d6b; --green-dark: #146f4b; --tint: #e9f6ef;
+    --dylan: #2563eb; --dylan-tint: #e8effd; --ishaan: #1f9d6b; --ishaan-tint: #e7f6ef;
+    --amber: #8a5a00; --amber-tint: #fdf3dc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; color: var(--ink); font-size: 9.3pt; line-height: 1.28; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid var(--ink); padding-bottom: 5px; }
+  h1 { font-size: 19pt; letter-spacing: -0.02em; line-height: 1; }
+  h1 span { color: var(--green); }
+  .meta { text-align: right; font-size: 8.6pt; color: var(--muted); line-height: 1.35; }
+  .meta b { color: var(--ink); }
+  h2 { font-size: 8pt; letter-spacing: 0.09em; text-transform: uppercase; color: var(--green-dark); margin: 8px 0 3px; }
+  .lost { background: var(--tint); border-radius: 8px; padding: 6px 10px; margin-top: 7px; font-size: 9.6pt; }
+  .lost p + p { margin-top: 3px; }
+  .lost b { color: var(--green-dark); }
+
+  table { width: 100%; border-collapse: collapse; }
+  .ros td { border-top: 1px solid var(--line); padding: 3.5px 6px; vertical-align: top; }
+  .ros tr:first-child td { border-top: none; }
+  .ros td.t { width: 64px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ros td.w { width: 56px; }
+  .who { display: inline-block; font-size: 7.6pt; font-weight: 700; padding: 1px 6px; border-radius: 99px; }
+  .who.d { background: var(--dylan-tint); color: var(--dylan); }
+  .who.i { background: var(--ishaan-tint); color: var(--ishaan); }
+  .ros .what { font-weight: 700; }
+  .ros .say { color: var(--ink); }
+  .ros .show { color: var(--muted); font-size: 8.4pt; }
+  q { quotes: "\201C" "\201D"; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  ol.demo { list-style: none; counter-reset: s; }
+  ol.demo li { counter-increment: s; position: relative; padding-left: 20px; margin-bottom: 4px; }
+  ol.demo li::before { content: counter(s); position: absolute; left: 0; top: 1px; width: 14px; height: 14px; border-radius: 50%; background: var(--ishaan); color: #fff; font-size: 7.6pt; font-weight: 700; display: grid; place-items: center; }
+  .say-line { color: var(--muted); font-style: italic; }
+  .note { font-size: 8.5pt; color: var(--muted); margin-top: 4px; }
+  .note b { color: var(--ink); }
+  .warn { background: var(--amber-tint); color: var(--amber); border-radius: 6px; padding: 5px 8px; font-size: 8.5pt; margin-top: 6px; }
+  .warn b { color: #6b4500; }
+
+  dl.qa dt { font-weight: 700; margin-top: 4px; }
+  dl.qa dt:first-child { margin-top: 0; }
+  dl.qa dd { color: var(--ink); }
+
+  .check { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; }
+  .check div { padding-left: 15px; position: relative; font-size: 8.8pt; }
+  .check div::before { content: ""; position: absolute; left: 0; top: 2.5px; width: 9px; height: 9px; border: 1.3px solid var(--ink); border-radius: 2px; }
+  footer span:last-child { white-space: nowrap; margin-left: 12px; }
+  footer { margin-top: 7px; border-top: 1px solid var(--line); padding-top: 4px; font-size: 7.8pt; color: var(--faint); display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MainStreet AI <span>&middot;</span> Finals</h1>
+  <div class="meta"><b>Tue Nov 17, 7:00 pm, VMH 1505</b> &middot; about 7 min + Q&amp;A<br><span class="who d">Dylan</span> story and business &middot; <span class="who i">Ishaan</span> product and build</div>
+</header>
+
+<div class="lost">
+  <p><b>If you get lost:</b> MainStreet AI is an Angie's List for AI tools for Main Street small businesses. Our agent reads your shop, finds the jobs AI could take off your week, picks a tool a person has checked, and sets it up only after you say yes.</p>
+  <p><b>The insight:</b> owners don't say AI is too hard. They don't know what fits or what to trust. Finding and trust are the problem, and setup is where everyone drops off.</p>
+</div>
+
+<h2>Run of show</h2>
+<table class="ros">
+  <tr><td class="t">0:00&ndash;0:45</td><td class="w"><span class="who d">Dylan</span></td><td>
+    <span class="what">Hook.</span> Dave, two-van HVAC, under a furnace, phone ringing. <b>27%</b> of home-services calls go unanswered. AI can answer today, so why not Dave? Only <b>19.8%</b> of businesses used AI in the past two weeks; <b>22%</b> of non-planners don't know what it can do. <b>50,000+</b> tools on one directory, makers pay for placement. <b>Relay.app</b> shut down and deleted every workflow.</td></tr>
+  <tr><td class="t">0:45&ndash;1:00</td><td class="w"><span class="who d">Dylan</span></td><td>
+    <span class="what">What we built.</span> <q>So we built MainStreet AI, an Angie's List for AI tools. Ishaan will show you.</q></td></tr>
+  <tr><td class="t">1:00&ndash;4:00</td><td class="w"><span class="who i">Ishaan</span></td><td>
+    <span class="what">Live demo.</span> One business, one path (below).</td></tr>
+  <tr><td class="t">4:00&ndash;5:00</td><td class="w"><span class="who i">Ishaan</span></td><td>
+    <span class="what">Why it's real.</span> Pipeline: <b>261</b> found, <b>207</b> read, <b>109</b> scored, <b>85</b> approved by a person, reruns weekly. The yes is enforced in code: our test site tells the agent to ignore its rules, so the owner's decision sits in a folder the agent can only read. No yes, no sign-up. Never a card.</td></tr>
+  <tr><td class="t">5:00&ndash;6:00</td><td class="w"><span class="who d">Dylan</span></td><td>
+    <span class="what">Market and money</span> <span class="show">(bento slide).</span> TAM <b>36.2M</b> U.S. small businesses. SAM <b>29.0M</b> not using AI. SOM <b>559K</b> in Maryland first, reached through SBDC, SCORE and SBA, not ads. Free for owners, paid for by partners, plus a paid done-for-you tier with local helpers. Never paid placement.</td></tr>
+  <tr><td class="t">6:00&ndash;7:00</td><td class="w"><span class="who d">Dylan</span></td><td>
+    <span class="what">Moat, next, close.</span> <q>OpenAI could build the chat. The chat isn't the hard part.</q> The hard part: a catalog checked against evidence every week, Maryland partners owners trust, actually setting it up, being accountable here. Next: SBDC distribution, real owner reviews, local helpers, shutdown alerts. Thank you.</td></tr>
+</table>
+
+<div class="cols">
+  <div>
+    <h2>Demo path (Ishaan, 3 min)</h2>
+    <ol class="demo">
+      <li><b>Text:</b> &ldquo;I run a hair salon in Westminster, MD.&rdquo; Replies plus a share link come back.</li>
+      <li><b>What we found:</b> shop facts, each with its source. <span class="say-line">&ldquo;Every fact links to where we found it.&rdquo;</span></li>
+      <li><b>Job card:</b> our pick, 75/100, tap &ldquo;Why this score&rdquo;. <span class="say-line">&ldquo;75+ and a person's sign-off is Verified.&rdquo;</span></li>
+      <li><b>6-second preview</b> of the tool in a shop like theirs. <span class="say-line">&ldquo;Always labelled AI-generated.&rdquo;</span></li>
+      <li><b>Yes poll, then setup:</b> cloud browser signs up on the free plan, hands CAPTCHAs to the owner. <span class="say-line">&ldquo;Nothing happens until they say yes.&rdquo;</span></li>
+    </ol>
+    <p class="note"><b>Don't show:</b> catalog admin, code, a second business, the &ldquo;resting&rdquo; banner.</p>
+    <p class="note"><b>If it stalls:</b> play that step's recording and keep talking.</p>
+    <p class="note"><b>Only 5 min?</b> One sentence for &ldquo;Why it's real&rdquo;; demo steps 2, 3, 5.</p>
+  </div>
+  <div>
+    <h2>Q&amp;A crib</h2>
+    <dl class="qa">
+      <dt>How do you make money?</dt><dd>Free for owners; partners pay, plus a paid done-for-you tier. Never paid placement.</dd>
+      <dt>Vs G2 or Capterra?</dt><dd>Built for software buyers and paid by vendors. We start from your shop, check evidence, do the setup.</dd>
+      <dt>A tool shuts down?</dt><dd>&ldquo;Still shipping&rdquo; is a check; weekly reruns. Relay is the case we built for.</dd>
+      <dt>Safe to let an agent sign up?</dt><dd>Only on a yes for that exact tool, in code. No card; stops at CAPTCHAs and payment pages.</dd>
+      <dt>Legacy software?</dt><dd>Picks match Square, Toast, QuickBooks, Google Business Profile.</dd>
+      <dt>Any business?</dt><dd>9 fixed jobs; every business type has 2+ approved tools per job.</dd>
+      <dt>What doesn't work yet?</dt><dd>iMessage only answers approved numbers (about $100 to open), one server, setup for a handful of vendors.</dd>
+    </dl>
+  </div>
+</div>
+
+<h2>Before 7:00</h2>
+<div class="check">
+  <div>Run the salon intake around 6:00 and keep the owner page open</div>
+  <div>Wake the agent 10 min early (cold reply: about 1 min)</div>
+  <div>Phone charged, Do Not Disturb on, demo number approved</div>
+  <div>Backup recordings open for every demo step</div>
+  <div>Agree on the money answer and say it the same way</div>
+  <div>One pick or 2&ndash;3 per job: say what the screen shows</div>
+</div>
+
+<footer><span>Sources: SBA Advocacy 2026, MD 2025 profile; Census BTOS May 2026; CES WP 26-25; Invoca 2024; TAAFT 2026; TechCrunch Aug 2026</span><span>mainstreet-ai-five.vercel.app</span></footer>
+
+</body>
+</html>

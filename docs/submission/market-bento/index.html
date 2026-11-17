@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MainStreet AI · Market</title>
+<style>
+  :root {
+    --bg: #1c1d22;
+    --card: #ffffff;
+    --ink: #1d1d1f;
+    --muted: #6e6e73;
+    --faint: #a1a1a6;
+    --green: #1f9d6b;
+    --green-dark: #157a52;
+    --gap: 18px;
+    --r: 30px;
+    --font: -apple-system, "SF Pro Display", "SF Pro Text", system-ui, "Helvetica Neue", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); }
+  body {
+    font-family: var(--font);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .stage { width: 1920px; height: 1080px; transform-origin: center; flex: none; }
+  .canvas {
+    width: 1920px; height: 1080px;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: repeat(24, 1fr);
+    grid-template-rows: repeat(12, 1fr);
+    gap: var(--gap);
+    background: var(--bg);
+  }
+  .tile {
+    background: var(--card);
+    border-radius: var(--r);
+    position: relative;
+    overflow: hidden;
+    min-width: 0; min-height: 0;
+  }
+  h2 {
+    font-size: 27px; line-height: 1.12; font-weight: 600; letter-spacing: -0.015em;
+  }
+  .sub { font-size: 15px; line-height: 1.3; color: var(--muted); letter-spacing: -0.005em; }
+  .src { font-size: 11.5px; color: var(--faint); letter-spacing: 0; }
+  .tag {
+    display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+    padding: 4px 10px; border-radius: 999px; background: #e7f6ef; color: var(--green-dark);
+  }
+  .num { font-weight: 700; letter-spacing: -0.035em; line-height: 0.95; }
+  .g-green { background: linear-gradient(120deg, #0d6f47 0%, #1f9d6b 45%, #3cc58e 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .g-blue  { background: linear-gradient(120deg, #0a4fd1 0%, #1677e8 45%, #19a6d8 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  /* side-by-side small tiles: text left, icon right (like "Games") */
+  .pair { display: flex; align-items: center; justify-content: space-between; padding: 0 18px 0 26px; gap: 10px; }
+  .pair h2 { font-size: 25px; }
+  .pair img { width: 112px; height: auto; flex: none; filter: drop-shadow(0 6px 10px rgba(0,0,0,.12)); }
+  .pair .sub { margin-top: 6px; }
+
+  /* ---------- market column ---------- */
+  .tam { grid-column: 1 / 7; grid-row: 1 / 5; text-align: center; padding-top: 22px; }
+  .tam .num { font-size: 78px; margin-top: 8px; }
+  .tam .sub { margin-top: 6px; }
+  .tam .street { position: absolute; left: 50%; bottom: -14px; width: 430px; transform: translateX(-50%); }
+  .th { display: flex; align-items: center; gap: 10px; }
+  .tam .th { justify-content: center; }
+
+  .sam {
+    grid-column: 1 / 7; grid-row: 5 / 9;
+    background: linear-gradient(155deg, #effaf4 0%, #b9ebd3 38%, #5cc89c 72%, #1f9d6b 100%);
+    display: grid; grid-template-columns: 1fr 156px; align-items: center; padding: 0 22px 0 28px; gap: 8px;
+  }
+  .sam .tag { background: rgba(255,255,255,.75); }
+  .sam .th { flex-direction: column; align-items: flex-start; gap: 10px; }
+  
+  .sam .num { font-size: 70px; margin-top: 10px; color: #0b5a3a; }
+  .sam .sub { color: #1e4d3a; margin-top: 8px; }
+  .sam .src { color: #2e6b52; margin-top: 8px; }
+  .glass {
+    background: rgba(255,255,255,.62);
+    border: 1px solid rgba(255,255,255,.8);
+    border-radius: 26px;
+    box-shadow: 0 10px 30px rgba(10,80,50,.12);
+    backdrop-filter: blur(20px);
+  }
+  .ring { width: 156px; height: 156px; display: grid; place-items: center; position: relative; }
+  .ring svg { position: absolute; inset: 12px; }
+  .ring .pct { font-size: 26px; font-weight: 700; letter-spacing: -0.03em; color: #0b5a3a; line-height: 1; text-align: center; }
+  .ring .pct small { display: block; font-size: 12px; font-weight: 500; letter-spacing: 0; color: #2e6b52; margin-top: 4px; }
+
+  .som { grid-column: 1 / 7; grid-row: 9 / 13; padding: 22px 26px 22px 30px; display: flex; flex-direction: column; }
+  .som .top { display: flex; align-items: center; gap: 22px; margin-top: 12px; }
+  .som .top img { width: 104px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.12)); }
+  .som .num { font-size: 74px; }
+  
+  .som .sub { margin-top: 10px; color: var(--ink); font-weight: 500; }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: auto; }
+  .pills .lbl { flex-basis: 100%; margin-bottom: 2px; }
+  .pills .lbl { font-size: 13px; color: var(--muted); margin-right: 2px; }
+  .pill { font-size: 13px; font-weight: 600; padding: 7px 13px; border-radius: 999px; background: #f2f2f5; color: var(--ink); }
+
+  /* ---------- band 1 ---------- */
+  .reads { grid-column: 7 / 12; grid-row: 1 / 3; }
+  .jobs  { grid-column: 7 / 12; grid-row: 3 / 5; padding: 18px 20px 18px 26px; display: grid; grid-template-columns: 118px 1fr; align-items: center; gap: 12px; }
+  .jobs h2 { font-size: 25px; }
+  .menu { padding: 6px 4px; border-radius: 18px; background: #f5f5f7; }
+  .menu div { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; padding: 6px 10px; white-space: nowrap; }
+  .menu div + div { border-top: 1px solid #e6e6ea; }
+  .chk { width: 18px; height: 18px; border-radius: 50%; background: var(--green); display: grid; place-items: center; flex: none; }
+  .chk svg { width: 10px; height: 10px; }
+  .menu .more { color: var(--faint); font-weight: 500; }
+
+  .photo { grid-column: 12 / 17; grid-row: 1 / 5; background: #cfe3f1 url(assets/owner.jpg) 50% 58% / cover no-repeat; }
+  .photo::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 46%; background: linear-gradient(180deg, rgba(255,255,255,.88) 0%, rgba(255,255,255,.55) 45%, rgba(255,255,255,0) 100%); }
+  .photo h2 { position: absolute; top: 20px; left: 22px; color: var(--ink); }
+  .bubbles { position: absolute; left: 14px; right: 14px; bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+  .bubble { max-width: 92%; font-size: 14px; line-height: 1.28; padding: 8px 13px; border-radius: 19px; letter-spacing: -0.005em; }
+  .bubble.out { align-self: flex-end; background: #0a84ff; color: #fff; border-bottom-right-radius: 6px; }
+  .bubble.in  { align-self: flex-start; background: rgba(240,240,243,.96); color: var(--ink); border-bottom-left-radius: 6px; display: flex; gap: 8px; align-items: center; }
+  .bubble.in img { width: 22px; height: 22px; }
+
+  .shield { grid-column: 17 / 21; grid-row: 1 / 3; }
+  .coin   { grid-column: 21 / 25; grid-row: 1 / 3; }
+  .relay  { grid-column: 17 / 21; grid-row: 3 / 5; }
+  .shield img, .coin img, .relay img { width: 96px; }
+  .catalog { grid-column: 21 / 25; grid-row: 3 / 5; padding: 18px 24px; display: flex; flex-direction: column; justify-content: center; }
+  .catalog .row { display: flex; align-items: baseline; gap: 10px; }
+  .catalog .num { font-size: 64px; }
+  .catalog .sub { color: var(--ink); font-weight: 600; font-size: 16px; line-height: 1.2; }
+  .funnel { display: flex; gap: 4px; margin-top: 12px; align-items: flex-end; }
+  .funnel span { flex: 1; border-radius: 6px; background: #e3e5e9; font-size: 11px; font-weight: 600; color: var(--muted); text-align: center; padding: 4px 0; }
+  .funnel span.on { background: var(--green); color: #fff; }
+
+  /* ---------- hero ---------- */
+  .hero {
+    grid-column: 7 / 17; grid-row: 5 / 9;
+    background: #1f9d6b url(assets/hero.jpg) center / cover no-repeat;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+  }
+  .hero::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse 72% 62% at 50% 55%, rgba(4,70,44,.42), rgba(4,70,44,0) 78%); }
+  .hero > * { position: relative; }
+  .hero h1 {
+    font-size: 104px; font-weight: 700; letter-spacing: -0.045em; line-height: 1;
+    background: linear-gradient(180deg, #ffffff 0%, #f2fff8 45%, #c9f4df 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 6px 22px rgba(4,60,38,.28));
+  }
+  .hero p { margin-top: 14px; font-size: 25px; font-weight: 500; color: rgba(255,255,255,.95); letter-spacing: -0.01em; text-shadow: 0 2px 14px rgba(4,60,38,.35); }
+  .hero p b { font-weight: 700; }
+
+  /* ---------- band 3 ---------- */
+  .stat { padding: 18px 26px; display: flex; flex-direction: column; justify-content: center; text-align: center; align-items: center; }
+  .stat .num { font-size: 66px; }
+  .stat .sub { margin-top: 6px; color: var(--ink); font-weight: 500; }
+  .stat .src { margin-top: 4px; }
+  .s198 { grid-column: 7 / 11; grid-row: 9 / 11; }
+  .s22  { grid-column: 7 / 11; grid-row: 11 / 13; }
+
+  .heap { grid-column: 11 / 17; grid-row: 9 / 13; text-align: center; padding-top: 24px; }
+  .heap .num { font-size: 66px; }
+  .heap .sub { margin-top: 6px; color: var(--ink); font-weight: 500; }
+  .heap .src { margin-top: 4px; }
+  .heap img { position: absolute; left: 50%; bottom: -26px; width: 400px; transform: translateX(-50%); }
+
+  /* ---------- right column ---------- */
+  .trust { grid-column: 17 / 25; grid-row: 5 / 10; padding: 26px 34px 24px; display: flex; flex-direction: column; }
+  .trust h2 { text-align: center; }
+  .trust .body { display: grid; grid-template-columns: 236px 1fr; gap: 44px; align-items: center; flex: 1; padding: 0 10px; }
+  .gauge { position: relative; width: 236px; height: 236px; }
+  .gauge .mid { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+  .gauge .mid b { display: block; font-size: 62px; letter-spacing: -0.04em; line-height: 1; }
+  .gauge .mid span { font-size: 13px; color: var(--muted); }
+  .checks { display: grid; grid-template-columns: 1fr; gap: 13px; }
+  .checks div { display: flex; align-items: center; gap: 12px; font-size: 19px; font-weight: 500; letter-spacing: -0.01em; }
+  .checks .chk { width: 24px; height: 24px; }
+  .checks .chk svg { width: 12px; height: 12px; }
+  .trust .foot { margin-top: 12px; text-align: center; font-size: 15px; color: var(--muted); }
+  .trust .foot b { color: var(--green-dark); font-weight: 600; }
+
+  .setup { grid-column: 17 / 25; grid-row: 10 / 13; padding: 24px 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .task {
+    margin-top: 16px; width: 100%; max-width: 470px;
+    display: flex; align-items: center; gap: 14px; text-align: left;
+    padding: 12px 14px 12px 12px; border-radius: 20px; background: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 8px 26px rgba(0,0,0,.09);
+    border: 1px solid #ececf0;
+  }
+  .task img { width: 44px; height: 44px; }
+  .task .t1 { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+  .task .t2 { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .task .stop { margin-left: auto; width: 40px; height: 40px; flex: none; }
+  .setup .sub { margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+<main class="canvas">
+
+  <!-- MARKET: TAM -->
+  <section class="tile tam">
+    <div class="th"><span class="tag">TAM</span><h2>Every U.S. small business</h2></div>
+    <div class="num g-green">36.2M</div>
+    <p class="src" style="margin-top:8px">SBA Office of Advocacy, Feb 2026</p>
+    <img class="street" src="assets/mainstreet.png" alt="">
+  </section>
+
+  <!-- MARKET: SAM -->
+  <section class="tile sam">
+    <div>
+      <div class="th"><span class="tag">SAM</span><h2>Not using AI yet</h2></div>
+      <div class="num">29.0M</div>
+      <p class="sub">U.S. small businesses that haven't started with AI</p>
+      <p class="src">36.2M &times; 80.2% &middot; Census BTOS, May 2026</p>
+    </div>
+    <div class="glass ring">
+      <svg viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(11,90,58,.12)" stroke-width="9"/>
+        <circle cx="50" cy="50" r="42" fill="none" stroke="url(#sg)" stroke-width="9" stroke-linecap="round"
+                stroke-dasharray="263.9" stroke-dashoffset="52.25" transform="rotate(-90 50 50)"/>
+        <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3cc58e"/><stop offset="1" stop-color="#0d6f47"/></linearGradient></defs>
+      </svg>
+      <div class="pct">80.2%<small>not using AI</small></div>
+    </div>
+  </section>
+
+  <!-- MARKET: SOM -->
+  <section class="tile som">
+    <div class="th"><span class="tag">SOM</span><h2>Maryland first</h2></div>
+    <div class="top">
+      <img src="assets/pin.png" alt="">
+      <div>
+        <div class="num g-green">559K</div>
+      </div>
+    </div>
+    <p class="sub">of 696,710 in Maryland aren't using AI yet</p>
+    <p class="src" style="margin-top:4px">SBA Advocacy, Maryland profile 2025 &times; 80.2%</p>
+    <div class="pills">
+      <span class="lbl">Want a person? We hand off to</span>
+      <span class="pill">Maryland SBDC</span><span class="pill">SCORE</span><span class="pill">SBA Baltimore</span>
+    </div>
+  </section>
+
+  <!-- PRODUCT -->
+  <section class="tile reads pair">
+    <div><h2>Reads your<br>business</h2><p class="sub">From a website or one line</p></div>
+    <img src="assets/globe.png" alt="">
+  </section>
+
+  <section class="tile jobs">
+    <div><h2>Finds the jobs</h2><p class="sub" style="margin-top:6px">3 to 5 of 9</p></div>
+    <div class="menu">
+      <div><span class="chk"><svg viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>AI phone receptionist</div>
+      <div><span class="chk"><svg viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Review replies</div>
+      <div><span class="chk"><svg viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Booking and reminders</div>
+    </div>
+  </section>
+
+  <section class="tile photo">
+    <h2>Works over<br>iMessage</h2>
+    <div class="bubbles">
+      <div class="bubble out">Coffee shop in Frederick, MD</div>
+      <div class="bubble in"><img src="assets/chat.png" alt="">Found 4 jobs I can take off your plate.</div>
+    </div>
+  </section>
+
+  <section class="tile shield pair">
+    <h2>Checked by<br>a person</h2>
+    <img src="assets/shield.png" alt="">
+  </section>
+
+  <section class="tile coin pair">
+    <h2>No paid<br>placement</h2>
+    <img src="assets/coin.png" alt="">
+  </section>
+
+  <section class="tile relay pair">
+    <div><h2>Relay.app<br>shut down</h2><p class="src" style="margin-top:6px">Deleted all workflows,<br>Aug 2026</p></div>
+    <img src="assets/broken.png" alt="">
+  </section>
+
+  <section class="tile catalog">
+    <div class="row"><div class="num g-green">85</div><div class="sub">tools approved<br>by a person</div></div>
+    <p class="src" style="margin-top:10px;font-size:12.5px;color:var(--muted)">261 found &rarr; 207 read &rarr; 109 scored</p>
+  </section>
+
+  <!-- HERO -->
+  <section class="tile hero">
+    <h1>MainStreet AI</h1>
+    <p>An <b>Angie's List for AI tools</b> for Main Street</p>
+  </section>
+
+  <!-- PROBLEM -->
+  <section class="tile stat s198">
+    <div class="num g-blue">19.8%</div>
+    <p class="sub">of U.S. businesses used AI in the past two weeks</p>
+    <p class="src">Census BTOS, May 2026</p>
+  </section>
+
+  <section class="tile stat s22">
+    <div class="num g-blue">22%</div>
+    <p class="sub">of firms not planning to use AI don't know what it can do</p>
+    <p class="src">Census CES WP 26-25</p>
+  </section>
+
+  <section class="tile heap">
+    <div class="num g-blue">50,000+</div>
+    <p class="sub">AI tools on one directory, where makers pay to be seen</p>
+    <p class="src">There's An AI For That, 2026</p>
+    <img src="assets/heap.png" alt="">
+  </section>
+
+  <!-- TRUST -->
+  <section class="tile trust">
+    <h2>Trust score, not star ratings</h2>
+    <div class="body">
+      <div class="gauge">
+        <svg viewBox="0 0 100 100" width="236" height="236">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="#eef0f2" stroke-width="8"/>
+          <circle cx="50" cy="50" r="42" fill="none" stroke="url(#tg)" stroke-width="8" stroke-linecap="round"
+                  stroke-dasharray="263.9" stroke-dashoffset="65.97" transform="rotate(-90 50 50)"/>
+          <defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3cc58e"/><stop offset="1" stop-color="#0d6f47"/></linearGradient></defs>
+        </svg>
+        <div class="mid"><div><b class="g-green">75+</b><span>out of 100 = Verified</span></div></div>
+      </div>
+      <div class="checks">
+        <div><span class="chk"><svg viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Who's behind it</div>
+        <div><span class="chk"><svg viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Age</div>
+        <div><span class="chk"><svg viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Data handling</div>
+        <div><span class="chk"><svg viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Public prices</div>
+        <div><span class="chk"><svg viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Independent reviews</div>
+        <div><span class="chk"><svg viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Still shipping</div>
+      </div>
+    </div>
+    <p class="foot">Six checks, each linked to evidence. <b>Plus a person's sign-off.</b></p>
+  </section>
+
+  <!-- SETUP -->
+  <section class="tile setup">
+    <h2>Sets it up, only on your yes</h2>
+    <div class="task">
+      <img src="assets/globe.png" alt="">
+      <div><div class="t1">Setting up Picktime &middot; free plan</div><div class="t2">You said yes &middot; cloud browser</div></div>
+      <svg class="stop" viewBox="0 0 40 40">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="#e6e6ea" stroke-width="3"/>
+        <circle cx="20" cy="20" r="16" fill="none" stroke="#1d1d1f" stroke-width="3" stroke-linecap="round" stroke-dasharray="100.5" stroke-dashoffset="38" transform="rotate(-90 20 20)"/>
+        <rect x="15" y="15" width="10" height="10" rx="2" fill="#1d1d1f"/>
+      </svg>
+    </div>
+    <p class="sub">Never enters a card. No yes for that exact tool, no sign-up.</p>
+  </section>
+
+</main>
+</div>
+<script>
+  // Fit the fixed 1920x1080 slide to any window.
+  function fit() {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    document.getElementById('stage').style.transform = `scale(${s})`;
+  }
+  if (!new URLSearchParams(location.search).has('raw')) { addEventListener('resize', fit); fit(); }
+</script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MainStreet AI - Live demo run sheet</title>
+<style>
+  @page { size: Letter; margin: 0.42in 0.45in; }
+  :root {
+    --ink: #16171a; --muted: #5d636b; --faint: #8d939a; --line: #e2e5e9;
+    --green: #1f9d6b; --green-dark: #146f4b; --tint: #e9f6ef;
+    --room: #2563eb; --room-tint: #e8effd;
+    --amber: #8a5a00; --amber-tint: #fdf3dc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; color: var(--ink); font-size: 9pt; line-height: 1.26; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid var(--ink); padding-bottom: 5px; }
+  h1 { font-size: 19pt; letter-spacing: -0.02em; line-height: 1; }
+  h1 span { color: var(--green); }
+  .meta { text-align: right; font-size: 8.6pt; color: var(--muted); line-height: 1.35; }
+  .meta b { color: var(--ink); }
+  h2 { font-size: 8pt; letter-spacing: 0.09em; text-transform: uppercase; color: var(--green-dark); margin: 8px 0 3px; }
+  .rule { background: var(--tint); border-radius: 8px; padding: 6px 10px; margin-top: 7px; font-size: 9.6pt; }
+  .rule b { color: var(--green-dark); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 7.6pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); font-weight: 600; padding: 0 6px 3px; }
+  td { border-top: 1px solid var(--line); padding: 3.5px 6px; vertical-align: top; }
+  td.n { width: 20px; padding-right: 0; }
+  td.n span { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 7.6pt; font-weight: 700; margin-top: 1px; }
+  td.step { width: 112px; font-weight: 700; }
+  td.room { width: 178px; }
+  td.room .tag { display: inline-block; font-size: 7.2pt; font-weight: 700; padding: 0 5px; border-radius: 99px; background: var(--room-tint); color: var(--room); margin-right: 3px; }
+  td.say q { quotes: "\201C" "\201D"; font-style: italic; }
+  td.brk { width: 150px; color: var(--amber); font-size: 8.4pt; }
+  .muted { color: var(--muted); }
+
+  .cols { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; }
+  .check div { padding-left: 15px; position: relative; margin-bottom: 2px; }
+  .check div::before { content: ""; position: absolute; left: 0; top: 2.5px; width: 9px; height: 9px; border: 1.3px solid var(--ink); border-radius: 2px; }
+  .swap { width: 100%; }
+  .swap td { padding: 2px 6px; font-size: 8.8pt; }
+  .swap td:first-child { color: var(--faint); text-decoration: line-through; width: 46%; }
+  .note { margin-top: 3px; }
+  .warn { background: var(--amber-tint); color: #6b4500; border-radius: 6px; padding: 5px 8px; font-size: 8.6pt; margin-top: 6px; }
+  .warn b { color: #4d3200; }
+  footer { margin-top: 7px; border-top: 1px solid var(--line); padding-top: 4px; font-size: 7.8pt; color: var(--faint); display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MainStreet AI <span>&middot;</span> Live demo run sheet</h1>
+  <div class="meta"><b>Tue Nov 17, 7:00 pm, VMH 1505</b><br>One phone &middot; the room plays the owner</div>
+</header>
+
+<div class="rule"><b>Two doors, one assistant:</b> owners can text it on iMessage or use the website. It's the same assistant, the same shop and the same answers, so pick whichever fits your day.<br><b>The rule:</b> at every step someone in the room makes the choice, and you just drive. Ask, wait for the answer, then click. Plain words only.</div>
+
+<h2>The demo, beat by beat</h2>
+<table>
+  <tr><th></th><th>Beat</th><th>The room does</th><th>You do and say</th><th>If it breaks</th></tr>
+  <tr><td class="n"><span>0</span></td><td class="step">Hands up</td>
+    <td class="room"><span class="tag">ALL</span>Hands up if more than half of small businesses use AI.</td>
+    <td class="say">Reveal <b>19.8%</b>. <q>Owners aren't saying AI is too hard. They don't know what fits or who to trust.</q></td>
+    <td class="brk">Nothing to break.</td></tr>
+  <tr><td class="n"><span>1</span></td><td class="step">Pick the shop</td>
+    <td class="room"><span class="tag">ALL</span>Shout out a favorite College Park spot, or pick from the menu: pizza, barber, coffee.</td>
+    <td class="say">Menu pick: open its page. New pick: start it live, <q>it's reading their website and nearby Google Maps listings</q>, and fill the minute with beat 4.</td>
+    <td class="brk">Live run slow: go to a pre-run shop and come back.</td></tr>
+  <tr><td class="n"><span>2</span></td><td class="step">Text or website?</td>
+    <td class="room"><span class="tag">ALL</span>Pick the door. <span class="tag">JUDGE</span>Plays the owner through it.</td>
+    <td class="say"><q>Owners can text us or use the website. Your call.</q> Text: hand a judge the phone (the thread shows on the projector via Messages on the Mac). Website: the judge types the shop into the site.</td>
+    <td class="brk">Mac thread not updating: mirror the phone, or read replies aloud.</td></tr>
+  <tr><td class="n"><span>3</span></td><td class="step">What we found</td>
+    <td class="room"><span class="tag">ALL</span>Is that right?</td>
+    <td class="say">Tap a fact to show its source. <q>Every fact links to where we found it.</q> If they texted, tap the link: <q>Same shop, waiting on the website too.</q></td>
+    <td class="brk">Wrong fact: <q>Good, the owner can fix that.</q></td></tr>
+  <tr><td class="n"><span>4</span></td><td class="step">Which would you trust?</td>
+    <td class="room"><span class="tag">ALL</span>Vote by hands between two tool cards.</td>
+    <td class="say">Open &ldquo;Why this score&rdquo;. <q>Six checks, each with evidence. 75 or more plus a person's sign-off is Verified. Builders we can't identify stay hidden.</q></td>
+    <td class="brk">Use the catalog page with &ldquo;Show unvetted tools&rdquo; for the contrast.</td></tr>
+  <tr><td class="n"><span>5</span></td><td class="step">See it in your shop</td>
+    <td class="room"><span class="tag">ALL</span>Watch the 6-second clip.</td>
+    <td class="say"><q>Owners don't read feature lists, so we show them. It's always labelled AI-generated.</q></td>
+    <td class="brk">Preview cap hit: play a pre-made preview.</td></tr>
+  <tr><td class="n"><span>6</span></td><td class="step">Yes or no?</td>
+    <td class="room"><span class="tag">ALL</span>Vote. <span class="tag">JUDGE</span>Taps the poll on the phone.</td>
+    <td class="say">Do &ldquo;no&rdquo; first: nothing happens. <q>Nothing happens until the owner says yes, even if a website tries to trick it.</q> Then yes.</td>
+    <td class="brk">Poll missing: use the buttons on the web page.</td></tr>
+  <tr><td class="n"><span>7</span></td><td class="step">It sets it up</td>
+    <td class="room"><span class="tag">JUDGE</span>Does the CAPTCHA or phone check if one appears.</td>
+    <td class="say"><q>We never sign up a real shop without its owner, so here's our test caf&eacute;.</q> Bean &amp; Brick signs up, free plan. <q>It hands this step to the owner. That's you.</q></td>
+    <td class="brk">Play the sign-up replay or the backup video.</td></tr>
+  <tr><td class="n"><span>8</span></td><td class="step">Close</td>
+    <td class="room"><span class="tag">ALL</span>Scan the QR code.</td>
+    <td class="say"><q>Try it on your own shop tonight.</q> Then the one-liner: an Angie's List for AI tools that sets it up for you.</td>
+    <td class="brk">QR fails: read out mainstreet-ai-five.vercel.app</td></tr>
+</table>
+
+<div class="cols">
+  <div>
+    <h2>Before 7:00</h2>
+    <div class="check">
+      <div>Pre-run 3&ndash;4 College Park shops, with their previews</div>
+      <div>Preview budget left today (2/owner, 10/day, $20 total)</div>
+      <div>App card and poll show in Messages on the Mac</div>
+      <div>Bean &amp; Brick sign-up run once; replay and video ready</div>
+      <div>Wake the assistant 10 min early (cold reply: ~1 min)</div>
+      <div>Phone charged, Do Not Disturb, approved number</div>
+      <div>Projector: Messages left, website right, zoom up</div>
+      <div>QR slide (qr-mainstreet.png); a recording of every beat</div>
+    </div>
+  </div>
+  <div>
+    <h2>Say this, not that</h2>
+    <table class="swap">
+      <tr><td>agent</td><td>assistant</td></tr>
+      <tr><td>catalog pipeline</td><td>a list we check by hand, every week</td></tr>
+      <tr><td>sandbox</td><td>it works in its own locked room</td></tr>
+      <tr><td>prompt injection</td><td>a website tried to trick it</td></tr>
+      <tr><td>provisioning</td><td>it signs you up</td></tr>
+      <tr><td>TinyFish, Claude Code, Docker</td><td>(leave out)</td></tr>
+    </table>
+    <div class="warn"><b>Never on stage:</b> sign up a real shop, let the whole room text the number (one phone only tonight), or show code, the terminal or the catalog admin.</div>
+  </div>
+</div>
+
+<footer><span>Team Forge &middot; AI for Small Business Hack-a-thon, Fall 2026</span><span>mainstreet-ai-five.vercel.app</span></footer>
+
+</body>
+</html>
