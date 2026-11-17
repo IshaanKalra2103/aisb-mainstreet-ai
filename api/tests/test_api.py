@@ -380,9 +380,40 @@ async def test_imessage_returns_links_and_new_preview_video(make_client, setting
     import os
     os.utime(app.state.ws.owner_dir(oid) / "preview_x.mp4", (1, 1))  # older than the turn: not this turn's video
     body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "hi"})).json()
-    assert body["links"] == [body["link"]] and body["video_url"] is None
+    assert body["links"] == [f"{body['link']}/shop"] and body["video_url"] is None
     app.state.imessage.min_gap = 0
     future = time.time() + 5
     os.utime(app.state.ws.owner_dir(oid) / "preview_x.mp4", (future, future))
     body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "again"})).json()
     assert body["video_url"] == f"/media/{oid}/preview_x.mp4"
+
+
+def test_split_texts_keeps_share_url_whole():
+    from msapi.imessage import split_texts
+    parts, urls = split_texts("Tap to share your shop: https://w/b/o1/shop", "https://w/b/o1")
+    assert urls == ["https://w/b/o1/shop"] and not any("/shop" in p for p in parts)
+
+
+async def test_imessage_sends_share_card_until_profile_has_facts(make_client):
+    app, c = make_client(FakeRunner(script(reply="Done.")))
+    oid = app.state.ws.owner_for_phone(HASH)
+    body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "hi"})).json()
+    assert body["links"] == [f"{body['link']}/shop"]
+    (app.state.ws.owner_dir(oid) / "profile.json").write_text(json.dumps(
+        {"name": "S", "facts": [{"text": "Opens 9 AM Tue", "source_url": "https://a.b"}]}))
+    app.state.imessage.min_gap = 0
+    body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "again"})).json()
+    assert body["links"] == [body["link"]]
+
+
+async def test_imessage_stops_share_card_once_the_owner_has_shared(make_client):
+    # A shared link the agent could not read leaves facts empty; the card must not come back on every reply.
+    app, c = make_client(FakeRunner(script(reply="Done.")))
+    oid = app.state.ws.owner_for_phone(HASH)
+    d = app.state.ws.owner_dir(oid)
+    (d / "profile.json").write_text(json.dumps({"name": "S", "facts": []}))
+    with (d / "messages.jsonl").open("a") as f:
+        f.write(json.dumps({"role": "owner", "text": "Here is my shop. Location: not shared. Link: https://instagram.com/s",
+                            "channel": "web"}) + "\n")
+    body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "hi"})).json()
+    assert body["links"] == [body["link"]]

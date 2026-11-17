@@ -58,3 +58,38 @@ def test_sim_test_label_is_simulated():
     assert s.label == "simulated"
     with pytest.raises(ValidationError):
         SimTest(score=7, persona="p", task="t", notes="n", label="real")
+
+
+from mstools.schemas import Fact, Profile  # noqa: E402
+
+BASE = dict(name="Main Street Shears", business_type="salon", city="Westminster", state="MD",
+            size="owner plus 2 stylists", summary="A three-stylist salon.")
+
+
+def test_profile_without_facts_still_valid():
+    p = Profile(**BASE)
+    assert p.facts == [] and p.lat is None and p.lon is None
+
+
+def test_fact_needs_http_source():
+    with pytest.raises(ValidationError):
+        Fact(text="13 of 40 nearby salons book online", source_url="maps search")
+    assert Fact(text="13 of 40 nearby salons book online", source_url="https://www.google.com/maps/search/x")
+
+
+def test_fact_text_is_short():
+    with pytest.raises(ValidationError):
+        Fact(text="x" * 91, source_url="https://a.b")
+
+
+def test_profile_caps_facts_at_5():
+    f = Fact(text="Opens 9 AM Tue", source_url="https://a.b")
+    with pytest.raises(ValidationError):
+        Profile(**BASE, facts=[f] * 6)
+    assert len(Profile(**BASE, facts=[f] * 5).facts) == 5
+
+
+def test_profile_lat_lon_in_range():
+    with pytest.raises(ValidationError):
+        Profile(**BASE, lat=91, lon=0)
+    assert Profile(**BASE, lat=39.57501, lon=-76.99531).lon == -76.99531

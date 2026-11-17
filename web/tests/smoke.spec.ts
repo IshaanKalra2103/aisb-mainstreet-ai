@@ -128,3 +128,12 @@ test("a slow health check (3 s) does not mark the site offline", async ({ page }
   await page.waitForTimeout(4500);
   await expect(page.getByText(/Our live agent is resting/)).toHaveCount(0);
 });
+
+test("profile shows facts with sources", async ({ page }) => {
+  await page.goto("/b/demo-salon");
+  await expect(page.getByText("What we found about your shop")).toBeVisible();
+  const facts = page.getByTestId("fact");
+  await expect(facts.first()).toBeVisible();
+  const n = await facts.count();
+  for (let i = 0; i < n; i++) await expect(facts.nth(i)).toHaveAttribute("href", /^https?:\/\//);
+});

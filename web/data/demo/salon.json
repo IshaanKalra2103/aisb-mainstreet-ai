@@ -15,7 +15,10 @@
    "paper appointment book",
    "24 hour cancellations"
   ],
-  "summary": "A three-stylist salon in Westminster, MD that takes bookings by phone and a paper appointment book."
+  "summary": "A three-stylist salon in Westminster, MD that takes bookings by phone and a paper appointment book.",
+  "facts": [
+    { "text": "13 of 40 Google Maps listings near Westminster show \"Book online\"", "source_url": "https://www.google.com/maps/search/hair+salon+Westminster+MD" }
+  ]
  },
  "needs": {
   "items": [

@@ -65,6 +65,14 @@ export interface Profile {
   uses: Integration[];
   pains: string[];
   summary: string;
+  /** What the intake found about the shop, each with the page it came from (3-5 when a link or location was shared). */
+  facts?: Fact[];
+  lat?: number | null;
+  lon?: number | null;
+}
+export interface Fact {
+  text: string;
+  source_url: string;
 }
 export interface NeedItem {
   need_id: NeedId;

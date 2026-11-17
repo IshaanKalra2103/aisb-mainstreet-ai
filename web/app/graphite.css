@@ -1,0 +1,153 @@
+/*
+  Copied from .gather/results-page/preview/tokens.css with :root scoped to .theme-graphite (the share page only;
+  the rest of the site stays light). Fonts point at the faces layout.tsx loads through next/font.
+
+  MainStreet results page tokens (preview sheet, 2026-11-16, round 2: graphite + lime, picked from palettes/f-graphite-lime.png).
+  Icons: Tabler Icons 3.x outline, 24px grid, stroke 2 drawn at 1.75 next to 400-weight text (better-ui icon stroke rule).
+  Fonts: Fraunces (display: headings and the one big number) and Source Sans 3 (UI, tables, every price and hour),
+  both from Google Fonts, the same two faces web/app/layout.tsx already loads through next/font.
+  Picks: dark ground with one bright accent (11 Ledger, now the whole page); serif headings (10 Equals, its paper ground dropped);
+  tabular figures for prices, hours and times (12 Flight card).
+  Graphite, not pure black, so the page keeps its mid-tones on a projector.
+*/
+.theme-graphite {
+  /* neutral ramp, graphite */
+  --color-bg: #1c1d22;           /* page */
+  --color-surface: #26272d;      /* cards, rows */
+  --color-surface-2: #34353c;    /* chips, quiet fills */
+  --color-line: #33343b;         /* row separators */
+  --color-line-strong: #4a4b53;  /* input and ghost-button borders */
+  --color-ink: #f1f1ee;          /* text */
+  --color-ink-2: #a9aab0;        /* secondary text */
+  --color-ink-3: #878890;        /* metadata (4.5:1 on surface) */
+
+  /* night: the agent's report and the proof receipt sit darker than the page */
+  --color-night: #121317;
+  --color-night-raised: #1b1c21;
+  --color-on-night: #f1f1ee;
+  --color-on-night-2: #9a9ba2;
+  --color-bezel: #08080a;
+
+  /* one accent: lime is the number that matters, the one primary action, and done/verified */
+  --color-accent: #d7ff3a;
+  --color-accent-ink: #15160f;   /* text and icons on lime */
+  --color-accent-tint: rgb(215 255 58 / 0.14);
+  --color-ok: #d7ff3a;           /* same value as accent today; kept as its own role */
+  --color-ok-ink: #15160f;
+  --color-ok-tint: #d7ff3a;
+
+  /* the success blob (23 Refero) */
+  --color-blob-1: #d7ff3a;
+  --color-blob-2: #5be3b5;
+  --color-blob-3: #8fb8ff;
+
+  --color-outline: rgb(255 255 255 / 0.12);
+  --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.06), 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 28px -12px rgb(0 0 0 / 0.6);
+  --shadow-pop: 0 0 0 1px rgb(255 255 255 / 0.08), 0 24px 48px -16px rgb(0 0 0 / 0.7);
+  --shadow-device: 0 40px 80px -24px rgb(0 0 0 / 0.7);
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-ui: var(--font-source), system-ui, sans-serif;
+
+  /* type scale: size / line-height / weight are one role each */
+  --text-hero: 6rem;      /* 96 / 1.0 / Fraunces 500 : the hours number */
+  --text-display: 2.25rem;/* 36 / 1.1 / Fraunces 500 : page title */
+  --text-h2: 1.5rem;      /* 24 / 1.2 / Fraunces 500 : card title */
+  --text-h3: 1.0625rem;   /* 17 / 1.3 / Source 600 : row title */
+  --text-body: 0.9375rem; /* 15 / 1.5 / Source 400 */
+  --text-ui: 0.875rem;    /* 14 / 1.4 / Source 400-600 : chips, buttons, cells */
+  --text-label: 0.75rem;  /* 12 / 1.3 / Source 600 uppercase +0.05em */
+
+  --radius-sm: 8px;    /* chips, inner tiles */
+  --radius-md: 12px;   /* buttons, rows */
+  --radius-lg: 20px;   /* cards: 12 inner + 8 padding */
+  --radius-pill: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --dur-1: 150ms;  /* press, hover, row */
+  --dur-2: 220ms;  /* step tick, chip swap */
+  --dur-3: 300ms;  /* entrances, icon cross-fade */
+  --dur-4: 700ms;  /* the card drop */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-drop: cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+/* ---- share page (/b/<id>/shop) ---- */
+.theme-graphite {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-ui);
+  min-height: 72vh;
+  padding: var(--space-7) var(--space-4);
+}
+.theme-graphite .shop-card {
+  max-width: 26rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.theme-graphite h1 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--text-display);
+  line-height: 1.1;
+  color: var(--color-ink);
+  margin: 0;
+}
+.theme-graphite .shop-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-line-strong);
+  background: transparent;
+  color: var(--color-ink);
+  font: 600 var(--text-ui) / 1.4 var(--font-ui);
+  transition: transform var(--dur-1) var(--ease-out), background-color var(--dur-1) ease;
+}
+.theme-graphite .shop-ghost:active:not(:disabled) { transform: scale(0.96); }
+.theme-graphite .shop-note { margin: 0; color: var(--color-ink-2); font-size: var(--text-ui); line-height: 1.4; }
+.theme-graphite label { display: flex; flex-direction: column; gap: var(--space-2); color: var(--color-ink-2); font-size: var(--text-ui); }
+.theme-graphite input {
+  min-height: 48px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: 400 1rem / 1.4 var(--font-ui); /* 16px: smaller text makes iOS zoom in on focus */
+}
+.theme-graphite input::placeholder { color: var(--color-ink-3); }
+.theme-graphite .shop-share {
+  min-height: 52px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font: 600 1rem / 1 var(--font-ui);
+  transition: transform var(--dur-1) var(--ease-out), opacity var(--dur-1) ease;
+}
+.theme-graphite .shop-share:active:not(:disabled) { transform: scale(0.96); }
+.theme-graphite .shop-share:disabled { opacity: 0.35; cursor: not-allowed; }
+.theme-graphite .shop-error { margin: 0; color: var(--color-ink); font-size: var(--text-body); line-height: 1.5; }
+.theme-graphite .shop-skip { align-self: center; color: var(--color-ink-2); font-size: var(--text-ui); text-decoration: underline; }
+@media (hover: hover) and (pointer: fine) {
+  .theme-graphite .shop-ghost:hover:not(:disabled) { background: var(--color-surface-2); }
+  .theme-graphite .shop-share:hover:not(:disabled) { opacity: 0.92; }
+  .theme-graphite .shop-skip:hover { color: var(--color-ink); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-graphite .shop-ghost:active:not(:disabled),
+  .theme-graphite .shop-share:active:not(:disabled) { transform: none; }
+}

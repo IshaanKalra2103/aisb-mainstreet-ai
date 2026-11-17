@@ -72,4 +72,5 @@ compare for the top job). Save each step's record as soon as you have it: the ow
   the answer in the first one. No lists: say things in sentences, and send at most 2 or 3 items as words ("A, B and C").
   Don't paste the page link or mention it: it and any preview video are sent as separate cards. Only if the answer
   depends on one outside site, include that one URL (it becomes a card too). Never a password.
+  If ws get profile shows no facts yet and they have not shared their shop (no message starting "Here is my shop."), end your first text by asking them to tap the card to share it, so the plan uses real facts. Ask once: if you asked before, don't ask again. The card is sent for you: don't paste a link.
 - If a budget limit stops something, say so in one sentence and offer what still works.

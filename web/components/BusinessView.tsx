@@ -231,7 +231,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   function cardTitle(c: CardDef): string {
     switch (c.kind) {
       case "intro": return "Getting to know you";
-      case "profile": return "Here's what we understood";
+      case "profile": return profile?.facts?.length ? "What we found about your shop" : "Here's what we understood";
       case "job": return c.need.title;
       case "setup": return pending.length ? "Ready when you are" : "Getting set up";
       case "helpers": return "Prefer a person?";
@@ -312,12 +312,25 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
       return (
         <div className="h-full flex flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-5 sm:px-6 sm:pt-6">
-            <Pill>Here&apos;s what we understood</Pill>
+            <Pill>{cardTitle(c)}</Pill>
             <h2 className="mt-5 text-[2.1rem] sm:text-[2.4rem] font-semibold leading-[1.05]">{profile.name}</h2>
             <p className="mt-2 text-lg text-muted">
               {BUSINESS_TYPE_LABELS[profile.business_type] ?? profile.business_type} in {profile.city}, {profile.state}
             </p>
             <p className="mt-3 text-lg leading-snug line-clamp-4">{profile.summary}</p>
+            {!!profile.facts?.length && (
+              <ul className="mt-4 flex flex-col gap-2">
+                {profile.facts.slice(0, 5).map((f) => (
+                  <li key={f.source_url + f.text}>
+                    <a data-testid="fact" href={f.source_url} target="_blank" rel="noopener"
+                      className="flex flex-col rounded-2xl bg-grey-tint px-3.5 py-2.5 text-grey-ink hover:no-underline active:scale-[0.98] transition-transform duration-150">
+                      <span className="text-base leading-snug">{f.text}</span>
+                      <span className="mt-0.5 text-sm text-muted">{hostOf(f.source_url)}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
             <p className="mt-5 eyebrow">Tools you already use</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {profile.uses.length ? profile.uses.map((u) => (
@@ -575,4 +588,13 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
       </AnimatePresence>
     </MotionConfig>
   );
+}
+
+/** "https://www.google.com/maps/..." -> "google.com" (the source shown under a fact). */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
 }

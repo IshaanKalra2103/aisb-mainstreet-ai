@@ -1,4 +1,5 @@
 """iMessage: the relay posts {from_hash, text}; we run a turn and hand back at most 3 texts plus the page link."""
+import json
 import re
 import time
 from datetime import date
@@ -16,6 +17,8 @@ class RateLimited(Exception):
 
 URL_RE = re.compile(r"https?://[^\s<>()\[\]]+")
 MD_LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
+# The share page's turn starts with this (web/lib/shop.ts shopTurnText); once seen, the owner has shared.
+SHARED_MARK = '"role": "owner", "text": "Here is my shop.'  # workspaces.py writes role, then text
 
 
 def split_texts(reply: str, link: str) -> tuple[list[str], list[str]]:
@@ -28,7 +31,9 @@ def split_texts(reply: str, link: str) -> tuple[list[str], list[str]]:
             urls.append(u)
         return ""
 
-    text = MD_LINK_RE.sub(lambda m: (grab(m[2]) or "") + m[1], (reply or "").replace(link, ""))
+    # drop the page link only where it is the whole URL: "<link>/shop" (the share page) must stay whole
+    text = re.sub(re.escape(link) + r"(?![/\w])", "", reply or "") if link else (reply or "")
+    text = MD_LINK_RE.sub(lambda m: (grab(m[2]) or "") + m[1], text)
     text = URL_RE.sub(lambda m: grab(m[0]), text)
     text = re.sub(r"\*\*(.+?)\*\*|__(.+?)__", lambda m: m[1] or m[2], text)
     text = re.sub(r"(?m)^[ \t]*(?:#{1,6}[ \t]+|[-*\u2022][ \t]+)", "", text).replace("`", "")
@@ -49,6 +54,22 @@ class IMessage:
         self.wait_s = settings.imessage_wait
         self.last: dict[str, float] = {}
         self.counts: dict[tuple[str, str], int] = {}
+
+    def _needs_shop(self, oid: str) -> bool:
+        """True until the profile has facts or the owner has used the share page: iMessage then sends the
+        "Share your shop" card instead of the page card. A share whose link could not be read leaves no facts,
+        and the card must not come back on every reply after that."""
+        d = self.ws.owner_dir(oid)
+        try:
+            if json.loads((d / "profile.json").read_text()).get("facts"):
+                return False
+        except (OSError, ValueError, AttributeError):
+            pass
+        try:
+            with (d / "messages.jsonl").open() as f:
+                return not any(SHARED_MARK in line for line in f)
+        except OSError:
+            return True
 
     async def handle(self, from_hash: str, text: str) -> dict:
         now = time.monotonic()
@@ -80,4 +101,6 @@ class IMessage:
             new = [f for f in self.ws.owner_dir(oid).glob("preview_*.mp4") if f.stat().st_mtime >= t0]
             if new:
                 video = f"/media/{oid}/{max(new, key=lambda f: f.stat().st_mtime).name}"
-        return {"replies": replies, "link": link, "links": [link, *urls], "video_url": video}
+        first = f"{link}/shop" if self._needs_shop(oid) else link
+        links = list(dict.fromkeys([first, *urls]))  # the agent may paste the share URL too
+        return {"replies": replies, "link": link, "links": links, "video_url": video}

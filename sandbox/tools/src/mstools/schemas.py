@@ -75,6 +75,12 @@ class Tool(BaseModel):
     reviewed_at: str | None = None
 
 
+class Fact(BaseModel):
+    """One thing the analysis found about the shop, with the page it came from."""
+    text: str = Field(min_length=3, max_length=90)
+    source_url: str = Field(pattern=r"^https?://")
+
+
 class Profile(BaseModel):
     name: str
     business_type: BusinessType
@@ -85,6 +91,9 @@ class Profile(BaseModel):
     uses: list[Integration] = []
     pains: list[str] = []
     summary: str
+    facts: list[Fact] = Field(default_factory=list, max_length=5)
+    lat: float | None = Field(None, ge=-90, le=90)
+    lon: float | None = Field(None, ge=-180, le=180)
 
 
 class NeedItem(BaseModel):
