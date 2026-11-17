@@ -29,6 +29,9 @@ PROFILES = {
         # Set when present, skipped when not: sign-ups get plus-addresses of this AgentMail inbox
         # (gcloud compute instances add-metadata ms-agent --metadata ms-inbox-base=name@agentmail.to).
         "optional_metadata": {"MS_INBOX_BASE": "ms-inbox-base"},
+        # Set when present: the Photon dashboard session behind the website's "Text me" (POST /api/phone).
+        # A whole-account login: delete the secret after the finals (gcloud secrets delete photon-session).
+        "optional_secrets": {"PHOTON_SESSION": "photon-session"},
         "fixed": {},
     },
     "relay": {
@@ -36,6 +39,9 @@ PROFILES = {
         "secrets": {"PROJECT_ID": "photon-project-id", "PROJECT_SECRET": "photon-project-secret",
                     "MS_RELAY_SECRET": "ms-relay-secret"},
         "metadata": {"AGENT_API_URL": "agent-api-url"},
+        # The agent VM's internal address (http://<ip>:8787). The outbox is polled there all the time, since it
+        # cannot start a stopped VM the way the waker URL does.
+        "optional_metadata": {"AGENT_DIRECT_URL": "agent-direct-url"},
         # Read by imessage/src/index.ts once it passes a timeout through (relay.ts TIMEOUT_MS is 300 s today).
         "fixed": {"RELAY_TIMEOUT_MS": "420000"},
     },
@@ -81,6 +87,13 @@ def main(profile: str) -> int:
             print(f"fetch-secrets: {secret}: HTTP {e.code}", file=sys.stderr)
             return 1
         env[var] = base64.b64decode(body["payload"]["data"]).decode().strip()
+    for var, secret in p.get("optional_secrets", {}).items():
+        url = f"https://secretmanager.googleapis.com/v1/projects/{project}/secrets/{secret}/versions/latest:access"
+        try:
+            env[var] = base64.b64decode(json.loads(get(url, auth))["payload"]["data"]).decode().strip()
+        except urllib.error.HTTPError as e:
+            if e.code not in (403, 404):
+                raise
     for var, attr in p["metadata"].items():
         env[var] = meta(f"instance/attributes/{attr}").strip()
     for var, attr in p.get("optional_metadata", {}).items():

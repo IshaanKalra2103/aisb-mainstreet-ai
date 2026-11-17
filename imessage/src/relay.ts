@@ -407,6 +407,12 @@ export interface OutboxDeps {
   log?: (line: string) => void;
   intervalMs?: number;
   windowMs?: number;
+  /** Poll all the time, not only after a phone texted: for a URL that cannot start the agent VM (its internal
+   * address, AGENT_DIRECT_URL), so a number added on the website can be texted first. */
+  always?: boolean;
+  timeoutMs?: number;
+  /** Open a thread with a phone that has never texted (a number added on the website), and remember it. */
+  open?: (to: string, fromHash: string) => Promise<RelayDeps>;
 }
 
 export class Outbox {
@@ -428,7 +434,7 @@ export class Outbox {
   }
 
   get active(): boolean {
-    return this.now() - this.lastActive < (this.d.windowMs ?? PUSH_WINDOW_MS);
+    return this.d.always === true || this.now() - this.lastActive < (this.d.windowMs ?? PUSH_WINDOW_MS);
   }
 
   /** One poll; never throws. Returns how many entries went out. */
@@ -446,7 +452,7 @@ export class Outbox {
       const res = await this.d.fetch(`${this.d.apiUrl.replace(/\/+$/, "")}/api/imessage/outbox${q}`, {
         method: "GET",
         headers,
-        signal: AbortSignal.timeout(POLL_TIMEOUT_MS),
+        signal: AbortSignal.timeout(this.d.timeoutMs ?? POLL_TIMEOUT_MS),
       });
       if (!res.ok) throw new RelayError(`http ${res.status}`);
       body = await res.json().catch(() => null);
@@ -469,7 +475,18 @@ export class Outbox {
     for (const e of Array.isArray(body.entries) ? body.entries : []) {
       const h = typeof e?.from_hash === "string" && /^[0-9a-f]{64}$/.test(e.from_hash) ? e.from_hash : "";
       const tag = h.slice(0, 12) || "?";
-      const deps = h ? this.d.thread(h) : undefined;
+      let deps = h ? this.d.thread(h) : undefined;
+      // A welcome carries the number once. Only a number that hashes to the entry's own sender hash is texted.
+      const to = typeof e?.to === "string" && /^\+1\d{10}$/.test(e.to) && hashSender(e.to) === h ? e.to : "";
+      if (!deps && to && this.d.open) {
+        try {
+          deps = await this.d.open(to, h);
+          log(`[push] ${tag} opened a thread`);
+        } catch (err) {
+          log(`[push] ${tag} could not open a thread: ${describe(err)}`);
+          continue;
+        }
+      }
       if (!deps) {
         log(`[push] ${tag} skipped: no thread for this phone since the relay started`);
         continue;

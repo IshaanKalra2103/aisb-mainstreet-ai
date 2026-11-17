@@ -14,6 +14,7 @@ log = logging.getLogger("msapi.imessage")
 # Texting first: entries the relay picks up with GET /api/imessage/outbox. Kept in memory for OUTBOX_TTL seconds.
 OUTBOX_TTL = 900.0
 OUTBOX_MAX = 200
+WELCOME_TTL = 120.0  # a welcome's raw number is dropped after this even if the relay never read it
 
 MAX_TEXTS = 3
 # Native iMessage poll for a pending approval. The vote decides it the way the page's buttons do.
@@ -271,8 +272,37 @@ class IMessage:
             log.info("push %s entries=%d", oid, len(hashes))
         return len(hashes)
 
+    def welcome(self, from_hash: str, to: str, oid: str | None, first: str) -> int:
+        """The line texts a number added from the website first. With a shop the phone is already tied to it
+        (link_phone) and gets its plan card and open question; without one, the first text asks for the shop.
+        `to` is the only raw number the API ever holds: in memory, until the relay has read it once (or
+        WELCOME_TTL), so the relay can open a thread with a phone that has never texted."""
+        first = first.strip().split()[0][:40] if first.strip() else ""
+        hi = f"Hi {first}, it's MainStreet AI." if first else "Hi, it's MainStreet AI."
+        if oid:
+            name = (_read(self.ws.owner_dir(oid) / "profile.json") or {}).get("name")
+            link = f"{self.s.web_url}/b/{oid}"
+            replies = [f"{hi} You asked for texts about {name or 'your shop'}.",
+                       "Text me here anytime: ask what AI can take off your plate, or say yes to a setup."]
+            payload = {"replies": replies, "links": [link] if name else [], "poll": self._offer(oid)}
+            self.ws.add_message(oid, "agent", "\n\n".join(replies), "imessage")
+        else:
+            payload = {"replies": [f"{hi} I find the jobs AI can take off a small shop's plate, and set the tools up.",
+                                   "What's your shop's website? If you don't have one, tell me the shop's name and town."]}
+        now = time.time()
+        self.seq += 1
+        self.outbox.append({"id": self.seq, "at": now, "from_hash": from_hash, "to": to,
+                            "replies": payload["replies"], "links": payload.get("links") or [], "video_url": None,
+                            "poll": payload.get("poll")})
+        self._trim(now)
+        log.info("welcome queued, shop: %s", bool(oid))
+        return self.seq
+
     def _trim(self, now: float) -> None:
         self.outbox = [e for e in self.outbox if now - e["at"] < OUTBOX_TTL][-OUTBOX_MAX:]
+        for e in self.outbox:
+            if "to" in e and now - e["at"] >= WELCOME_TTL:
+                del e["to"]
 
     def read_outbox(self, after: int | None, epoch: str | None) -> dict:
         """Entries after the relay's cursor. Without one (relay start, or polling again after a quiet spell) only
@@ -285,8 +315,10 @@ class IMessage:
         else:
             entries = [e for e in self.outbox if e["id"] > after]
         busy = any(self.turns.active_turn(o) for o in self.ws.phone_owners())
-        return {"epoch": self.epoch, "next": self.seq, "busy": busy,
-                "entries": [{k: v for k, v in e.items() if k != "at"} for e in entries]}
+        out = [{k: v for k, v in e.items() if k != "at"} for e in entries]
+        for e in entries:
+            e.pop("to", None)  # handed to the relay once; the API keeps no raw number after that
+        return {"epoch": self.epoch, "next": self.seq, "busy": busy, "entries": out}
 
     def _turn_finished(self, turn: Turn, ev: dict) -> None:
         """A website turn of a texting owner, or an iMessage turn the relay stopped waiting for: text its result.

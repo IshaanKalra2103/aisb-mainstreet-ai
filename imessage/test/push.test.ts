@@ -167,3 +167,56 @@ test("logs never carry the phone number or the message text", async () => {
   }
   assert.match(h.logs.at(-1)!, /^\[push\] [0-9a-f]{12} texts=1 links=0 video=0 poll=0 \d+\.\ds$/);
 });
+
+// A number added on the website: AGENT_DIRECT_URL polling (always on) and a thread opened for a phone that never texted.
+const NEW = "+12405550142";
+const NH = hashSender(NEW);
+
+test("always: polls with no recent text (the direct URL cannot wake the VM)", async () => {
+  const h = harness([], { always: true });
+  await h.box.tick();
+  h.tick(PUSH_WINDOW_MS * 4);
+  await h.box.tick();
+  assert.equal(h.urls.length, 2);
+});
+
+test("a welcome opens a thread with the new number and texts it first", async () => {
+  const opened: string[] = [];
+  const sent: string[] = [];
+  const fresh: RelayDeps = {
+    apiUrl: "http://api.test", fetch: async () => json(404, {}),
+    send: async (t) => void sent.push(t), sendLink: async (u) => void sent.push(`link:${u}`),
+    sleep: async () => {}, log: () => {},
+  };
+  const h = harness([
+    json(200, { epoch: "e1", next: 0, busy: false, entries: [] }),
+    json(200, { epoch: "e1", next: 1, busy: false, entries: [entry({ id: 1, from_hash: NH, to: NEW, replies: ["Hi Dana, it's MainStreet AI."] })] }),
+  ], { always: true, open: async (to, h2) => (opened.push(`${to}|${h2 === NH}`), fresh) });
+  await h.box.tick();
+  assert.equal(await h.box.tick(), 1);
+  assert.deepEqual(opened, [`${NEW}|true`]);
+  assert.deepEqual(sent, ["Hi Dana, it's MainStreet AI."]);
+  assert.ok(h.logs.includes(`[push] ${NH.slice(0, 12)} opened a thread`));
+  assert.ok(!h.logs.some((l) => l.includes(NEW)), "the number is never logged");
+});
+
+test("a number that does not hash to the entry's sender is never texted", async () => {
+  let opened = 0;
+  const h = harness([
+    json(200, { epoch: "e1", next: 0, busy: false, entries: [] }),
+    json(200, { epoch: "e1", next: 1, busy: false, entries: [entry({ id: 1, from_hash: NH, to: "+12405550199" })] }),
+  ], { always: true, open: async () => (opened++, undefined as unknown as RelayDeps) });
+  await h.box.tick();
+  assert.equal(await h.box.tick(), 0);
+  assert.equal(opened, 0);
+});
+
+test("a thread that fails to open is logged and skipped", async () => {
+  const h = harness([
+    json(200, { epoch: "e1", next: 0, busy: false, entries: [] }),
+    json(200, { epoch: "e1", next: 1, busy: false, entries: [entry({ id: 1, from_hash: NH, to: NEW })] }),
+  ], { always: true, open: async () => { throw new Error("nope"); } });
+  await h.box.tick();
+  assert.equal(await h.box.tick(), 0);
+  assert.ok(h.logs.includes(`[push] ${NH.slice(0, 12)} could not open a thread: Error`));
+});

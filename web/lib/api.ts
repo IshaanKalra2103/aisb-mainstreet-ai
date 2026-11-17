@@ -119,6 +119,14 @@ export async function decide(
   return json ?? {};
 }
 
+/** "Text me": the line adds this number and texts it first (tied to `ownerId`'s shop when given). Throws an
+ * ApiError with a sentence written for the visitor (number taken, out of spots, try again). */
+export async function addPhone(form: { first_name: string; email: string; phone: string; owner_id?: string }): Promise<void> {
+  const { status, json } = await post<{ detail?: unknown }>("/api/phone", form);
+  if (status === 422) throw new ApiError("Check the number and email. We text US mobile numbers only.", status);
+  if (status >= 400) throw apiError(status, json, "That did not go through. Please try again in a minute.");
+}
+
 /** The shop code to text to the iMessage line, so that phone carries on as this shop; `linked` once one has. */
 export async function linkCode(ownerId: string): Promise<{ code: string; linked: boolean }> {
   const r = await fetch(`${base()}/api/owners/${ownerId}/link`, { cache: "no-store" });

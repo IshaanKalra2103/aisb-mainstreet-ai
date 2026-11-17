@@ -31,3 +31,10 @@ class Settings:
     imessage_min_gap: float = 5.0
     imessage_per_day: int = 40
     imessage_wait: float = 280.0
+    # The website's "Text me" (POST /api/phone): Photon dashboard session + project, a hard cap on numbers the form
+    # adds (the free plan allows 10 in all, one is Ishaan's), and adds per client per day (venue Wi-Fi is one IP).
+    photon_session: str | None = os.environ.get("PHOTON_SESSION") or None
+    photon_project_id: str | None = os.environ.get("PHOTON_PROJECT_ID") or None
+    phone_adds_cap: int = int(os.environ.get("MS_PHONE_ADDS_CAP", "9"))
+    phone_adds_per_ip_day: int = int(os.environ.get("MS_PHONE_ADDS_PER_IP_DAY", "3"))
+    phone_tries_per_ip_day: int = 8

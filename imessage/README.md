@@ -18,6 +18,7 @@ For each incoming text message:
    - On a website yes: "Got your yes on the website. Setting up <tool> now. I'll text you when it's done, or if I need you for a step." It goes in at once.
    - When any website turn of that owner ends (the setup turn included): its result, which can be "done" or "need you for one step".
    - When an iMessage turn outlives the relay's wait (the reply then says "Still working on that. I'll text you when it's done."): its result.
+   - When someone adds their number with the website's "Text me" form (`POST /api/phone`): a welcome. The API puts the number on the Photon line's allowed list (the free plan texts only those, 10 at most; the form adds 9 at most), ties it to the shop when the form was on a shop page, and the welcome entry carries the number once (`to`). The relay opens a thread with that number (`im.space.create(im.user(to))`), but only if the number hashes to the entry's `from_hash`, and the API drops the number once the relay has read it. A number that already texts with a shop is not moved to another one by the form.
 
    The relay polls `GET /api/imessage/outbox?after=<cursor>&epoch=<api start id>` (with `X-Relay-Secret`) every 3 s. It only polls for 30 min after a phone last texted or voted. It keeps polling past that while the API says a texting owner has a turn running (`busy`). On GCP every poll through the waker can start the agent VM, so it must not poll all day. The first poll after a start or a quiet spell only reads the cursor, so old entries are never replayed. The relay remembers each phone's thread from its texts, in memory: after a relay restart, a phone gets pushes again once it texts. Turns started by a text are not pushed, because their reply already goes out.
 
@@ -67,4 +68,5 @@ cd imessage && RELAY_TEST_API_URL=http://127.0.0.1:8788 RELAY_TEST_SECRET=test n
 - `MS_RELAY_SECRET`: must match the API's `MS_RELAY_SECRET`. If it doesn't, the API answers 401 and owners get the sorry text.
 - `RELAY_NATIVE_LOCATION=0`: turns the native location request off, so the relay sends the share page card again.
 - `RELAY_PUSH=0`: turns texting first off (no outbox polling).
+- `AGENT_DIRECT_URL`: an address of the API that cannot start the agent VM (on GCP its internal address, `http://<ip>:8787`, from the `agent-direct-url` metadata). When set, the outbox is polled there all the time, with a 5 s timeout, so a number added on the website is texted even when nobody has texted lately. Texts still go to `AGENT_API_URL`.
 - `RELAY_PUSH_WINDOW_MS` (default 1800000, 30 min) and `RELAY_PUSH_INTERVAL_MS` (default 3000): how long after a phone's last text the relay keeps polling the outbox, and how often.

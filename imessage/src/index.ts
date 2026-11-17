@@ -52,18 +52,29 @@ const location = process.env.RELAY_NATIVE_LOCATION === "0" ? null : locationKit(
 // Texting first (website yes, finished setups): the thread of each phone that texted since start, by sender hash.
 // Lost on restart until that phone texts again. RELAY_PUSH=0 turns it off; RELAY_PUSH_WINDOW_MS is how long after a
 // phone's last text we keep polling (every poll through the GCP waker can start the agent VM).
+// AGENT_DIRECT_URL (the agent VM's internal address on GCP) cannot start the VM, so the relay polls it all the time
+// with a short timeout: a number added on the website is texted first even when nobody texted lately. Texts the
+// relay posts still go to AGENT_API_URL, which wakes the VM.
+const directUrl = process.env.AGENT_DIRECT_URL || undefined;
 const threads = new Map<string, RelayDeps>();
+const im = imessage(app);
 const outbox = process.env.RELAY_PUSH === "0" ? null : new Outbox({
-  apiUrl,
+  apiUrl: directUrl ?? apiUrl,
   secret,
   fetch: (url, init) => fetch(url, init),
   thread: (h) => threads.get(h),
   intervalMs: timeoutFromEnv(process.env.RELAY_PUSH_INTERVAL_MS) ?? PUSH_INTERVAL_MS,
   windowMs: timeoutFromEnv(process.env.RELAY_PUSH_WINDOW_MS) ?? PUSH_WINDOW_MS,
+  ...(directUrl && { always: true, timeoutMs: 5_000 }),
+  open: async (to, h) => {
+    const deps = threadDeps(await im.space.create(await im.user(to)));
+    threads.set(h, deps);
+    return deps;
+  },
 });
 if (outbox) void outbox.run();
 
-console.log(`[relay] listening, agent API ${apiUrl}, native location ${location ? "on" : "off"}, push ${outbox ? "on" : "off"}`);
+console.log(`[relay] listening, agent API ${apiUrl}, native location ${location ? "on" : "off"}, push ${outbox ? (directUrl ? "on (direct, always)" : "on") : "off"}`);
 
 // Each message is handled on its own so a slow turn (up to ~280 s) never blocks other senders.
 for await (const [space, message] of app.messages) {

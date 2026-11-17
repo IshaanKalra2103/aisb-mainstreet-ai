@@ -1,8 +1,10 @@
 """MainStreet AI API (spec §7): owners, turns (polled, or SSE locally), approvals, one-time passwords, media, iMessage."""
 import asyncio
+import hashlib
 import json
 import logging
 import os
+import re
 import secrets
 import subprocess
 import time
@@ -15,12 +17,14 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from .imessage import NOT_NOW, IMessage, RateLimited
+from .photon import Photon, PhotonError
 from .runner import DockerRunner, FakeRunner, Runner, token_looks_valid
 from .settings import Settings
 from .turns import LimitReached, TurnManager
-from .workspaces import Gone, NotFound, Workspaces
+from .workspaces import Gone, NotFound, Workspaces, _read, _write
 
 log = logging.getLogger("msapi.app")
+LINE = "+1 (415) 225-0168"  # the Photon iMessage line
 
 
 class OwnerIn(BaseModel):
@@ -41,6 +45,21 @@ class IMessageIn(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
 
 
+class PhoneIn(BaseModel):
+    first_name: str = Field(min_length=1, max_length=40)
+    last_name: str = Field("", max_length=40)
+    email: str = Field(max_length=200, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+    phone: str = Field(min_length=7, max_length=30)
+    owner_id: str | None = Field(None, max_length=40)
+
+
+def us_mobile(raw: str) -> str | None:
+    """A US number as E.164 (+1 and ten digits, the form the line sees a phone in), else None."""
+    d = re.sub(r"\D", "", raw)
+    d = d[1:] if len(d) == 11 and d.startswith("1") else d
+    return f"+1{d}" if re.fullmatch(r"[2-9]\d{2}[2-9]\d{6}", d) else None
+
+
 class VoteIn(BaseModel):
     from_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     poll: str = Field(min_length=1, max_length=300)
@@ -56,7 +75,7 @@ def docker_ready(image: str) -> bool:
 
 def create_app(runner: Runner | None = None, settings: Settings | None = None,
                check_docker: Callable[[], bool] | None = None,
-               check_token: Callable[[], bool] | None = None) -> FastAPI:
+               check_token: Callable[[], bool] | None = None, photon: Photon | None = None) -> FastAPI:
     s = settings or Settings()
     ws = Workspaces(s.workspaces)
     turns = TurnManager(runner or DockerRunner(s), ws, s)
@@ -69,6 +88,9 @@ def create_app(runner: Runner | None = None, settings: Settings | None = None,
     check_token = check_token or token_looks_valid
     health_cache: dict = {}
     owners_today: dict = {"day": "", "all": 0, "ip": {}}
+    app.state.photon = photon or Photon(s.photon_session, s.photon_project_id)
+    phones_today: dict = {"day": "", "tries": {}, "adds": {}}
+    phone_lock = asyncio.Lock()
 
     @app.exception_handler(NotFound)
     async def _nf(_, __):
@@ -220,6 +242,57 @@ def create_app(runner: Runner | None = None, settings: Settings | None = None,
             raise HTTPException(401, "Unknown relay")
         return JSONResponse(app.state.imessage.read_outbox(after, epoch), headers={"Cache-Control": "no-store"})
 
+    @app.post("/api/phone")
+    async def add_phone(body: PhoneIn, request: Request):
+        """The website's "Text me": put the number on the line's allowed list (Photon's free plan texts only
+        those), tie it to the shop if there is one, and have the line text it first. The number goes to Photon
+        and, once, to the relay (welcome); the API keeps only its hash. Never logs the number or the email."""
+        e164 = us_mobile(body.phone)
+        if not e164:
+            raise HTTPException(422, "Use a US mobile number, like (240) 555-1234.")
+        if body.owner_id:
+            ws.require(body.owner_id)
+        photon: Photon = app.state.photon
+        if not photon.on:
+            raise HTTPException(503, f"Texting from the website is off right now. Text {LINE} instead.")
+        ip = request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "unknown")
+        today = date.today().isoformat()
+        if phones_today["day"] != today:
+            phones_today.update(day=today, tries={}, adds={})
+        if (phones_today["tries"].get(ip, 0) >= s.phone_tries_per_ip_day
+                or phones_today["adds"].get(ip, 0) >= s.phone_adds_per_ip_day):
+            raise HTTPException(429, f"That's the limit for new numbers from here today. Text {LINE} instead.")
+        phones_today["tries"][ip] = phones_today["tries"].get(ip, 0) + 1
+        h = hashlib.sha256(e164.encode()).hexdigest()
+        # A phone that already texts with us keeps its shop: the form proves nothing about who holds the number.
+        # Switching shops goes through a text from that phone (the shop code), as before.
+        if ws.phone_owner(h):
+            raise HTTPException(409, f"That number already texts with us. Text {LINE} from it.")
+        async with phone_lock:  # one add at a time, so the cap holds
+            p = ws.root / "_invites.json"
+            added: list[str] = (_read(p) or {}).get("added", [])
+            if h not in added and len(added) >= s.phone_adds_cap:
+                raise HTTPException(429, "We're out of spots for new numbers right now.")
+            try:
+                new = await photon.allow(e164, body.first_name.strip(), body.last_name.strip(), body.email.strip())
+            except PhotonError as e:
+                log.warning("phone add failed: %s", e.kind)
+                if e.kind == "full":
+                    raise HTTPException(429, "We're out of spots for new numbers right now.")
+                if e.kind == "unavailable":
+                    raise HTTPException(409, "That number can't get texts from our line. Try another mobile number.")
+                if e.kind in ("off", "auth"):
+                    raise HTTPException(503, f"Texting from the website is off right now. Text {LINE} instead.")
+                raise HTTPException(502, "Couldn't reach our texting service. Try again in a minute.")
+            if new and h not in added:
+                _write(p, {"added": [*added, h]}, mode=0o600)
+        phones_today["adds"][ip] = phones_today["adds"].get(ip, 0) + 1
+        if body.owner_id:
+            ws.link_phone(h, body.owner_id)
+        app.state.imessage.welcome(h, e164, body.owner_id, body.first_name)
+        log.info("phone added: new=%s shop=%s", new, bool(body.owner_id))
+        return {"ok": True, "line": LINE}
+
     return app
 
 
@@ -233,5 +306,8 @@ def main() -> None:
         runner = FakeRunner([{"type": "system", "subtype": "init"},
                              {"type": "result", "subtype": "success", "is_error": False,
                               "result": "This is the offline test agent. The real one runs in Docker."}], delay=0.5)
-    uvicorn.run(create_app(runner=runner, **checks), host=os.environ.get("MS_API_HOST", "127.0.0.1"),
-                port=int(os.environ.get("MS_API_PORT", "8787")))
+    config = uvicorn.Config(create_app(runner=runner, **checks), host=os.environ.get("MS_API_HOST", "127.0.0.1"),
+                            port=int(os.environ.get("MS_API_PORT", "8787")))  # configures logging
+    # The relay polls the outbox every 3 s around the clock on GCP: keep those requests out of the access log.
+    logging.getLogger("uvicorn.access").addFilter(lambda r: "/api/imessage/outbox" not in r.getMessage())
+    uvicorn.Server(config).run()

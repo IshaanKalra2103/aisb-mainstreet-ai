@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { linkCode } from "@/lib/api";
 import { IMESSAGE_DISPLAY, IMESSAGE_NUMBER, smsHref } from "@/lib/brand";
+import TextMe from "./TextMe";
 
 /**
  * The second door: carry this shop on in iMessage. Texting the shop code to the line ties that phone to this shop
@@ -53,6 +54,7 @@ export default function TextUs({ ownerId, linked }: { ownerId: string; linked: b
           <br />to {IMESSAGE_DISPLAY}<span className="hidden sm:inline">, or scan this with your phone</span>
         </p>
         <a href={smsHref(body)} className="btn btn-primary mt-3 !min-h-11 !px-5 hover:no-underline">Open Messages</a>
+        <TextMe ownerId={ownerId} start="button" />
       </div>
       {qr && (
         <div role="img" aria-label={`QR code: text ${code} to ${IMESSAGE_DISPLAY}`} data-testid="shop-qr"

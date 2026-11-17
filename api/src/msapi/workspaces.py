@@ -238,6 +238,11 @@ class Workspaces:
         _write(p, phones, mode=0o600)
         return oid
 
+    def phone_owner(self, from_hash: str) -> str | None:
+        """The shop this phone texts as, if it has one (never creates one)."""
+        oid = (_read(self.root / "_phones.json") or {}).get(from_hash)
+        return oid if oid and self.exists(oid) else None
+
     def phones_for_owner(self, owner_id: str) -> list[str]:
         """The sender hashes that text as this owner (iMessage pushes go to these)."""
         return [h for h, o in (_read(self.root / "_phones.json") or {}).items() if o == owner_id]
