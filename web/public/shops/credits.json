@@ -1,0 +1,27 @@
+{
+  "coffee.jpg": {
+    "pexels_id": 8441251,
+    "photographer": "Ron Lach",
+    "url": "https://www.pexels.com/photo/waitress-behind-a-counter-in-a-restaurant-8441251/"
+  },
+  "diner.jpg": {
+    "pexels_id": 13061634,
+    "photographer": "Level 23 Media",
+    "url": "https://www.pexels.com/photo/the-interior-of-a-diner-13061634/"
+  },
+  "hvac.jpg": {
+    "pexels_id": 32497161,
+    "photographer": "Kathleen Austin Kuhn",
+    "url": "https://www.pexels.com/photo/technician-inspecting-outdoor-hvac-unit-32497161/"
+  },
+  "landscaping.jpg": {
+    "pexels_id": 37187508,
+    "photographer": "Jahra Tasfia Reza",
+    "url": "https://www.pexels.com/photo/gardener-tending-to-plants-in-a-lush-garden-37187508/"
+  },
+  "salon.jpg": {
+    "pexels_id": 9146943,
+    "photographer": "\u041b\u0435\u043d\u0430 Gromakova",
+    "url": "https://www.pexels.com/photo/interior-of-hairdresser-saloon-9146943/"
+  }
+}

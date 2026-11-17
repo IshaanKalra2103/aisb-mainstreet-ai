@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { DEMO_BUSINESSES, demoBundles } from "@/data/demo";
-import StreetTile from "@/components/StreetTile";
+import ShopTile from "@/components/ShopTile";
 
 export const metadata: Metadata = { title: "Example businesses" };
 
@@ -22,7 +22,7 @@ export default function DemoPage() {
       <ul className="mt-8 grid gap-5 sm:grid-cols-2">
         {DEMO_BUSINESSES.map((b) => (
           <li key={b.slug} className={demoBundles[b.slug] ? "" : "pointer-events-none opacity-60"}>
-            <StreetTile big slug={b.slug} name={b.name} place={b.place} kind={b.kind}
+            <ShopTile big slug={b.slug} name={b.name} place={b.place} kind={b.kind}
               stats={demoBundles[b.slug] ? statsOf(b.slug) : "Coming soon"} />
           </li>
         ))}

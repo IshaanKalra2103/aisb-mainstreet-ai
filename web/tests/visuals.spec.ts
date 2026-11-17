@@ -1,40 +1,51 @@
 import { test, expect } from "@playwright/test";
+import { existsSync, readFileSync } from "node:fs";
 
-// Photos of the shop's street (Google Street View) on the cards, and link cards with a big image for iMessage.
+// Photos of the shop on its page and cards, and link cards with a big image for iMessage.
 const API = "http://127.0.0.1:9";
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET,POST" };
 
-test("each example business shows a photo of its street", async ({ page }) => {
+const SLUGS = ["diner", "coffee", "hvac", "landscaping", "salon"];
+
+test("each example business shows a photo of that kind of shop, never a street view", async ({ page }) => {
+  // The example sites have no photos of their own, so each has a credited stock photo; the street photos are gone.
+  const credits = JSON.parse(readFileSync("public/shops/credits.json", "utf8"));
+  for (const slug of SLUGS) {
+    expect(credits[`${slug}.jpg`]?.url, slug).toMatch(/^https:\/\/www\.pexels\.com\/photo\//);
+    expect(existsSync(`public/places/${slug}`), `street photos of ${slug}`).toBe(false);
+  }
+  expect((await page.request.get("/api/street?slug=coffee")).status()).toBe(404);
   await page.goto("/demo");
-  for (const slug of ["diner", "coffee", "hvac", "landscaping", "salon"]) {
+  for (const slug of SLUGS) {
     const img = page.locator(`a[href="/b/demo-${slug}"] img`);
-    await expect(img).toHaveAttribute("src", `/places/${slug}/hero.jpg`);
-    await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(0);
+    await expect(img).toHaveAttribute("src", `/shops/${slug}.jpg`);
+    await expect(img).not.toHaveAttribute("alt", /street/i);
+    await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(1000);
   }
 });
 
-test("the home page shows the example streets", async ({ page }) => {
+test("the home page shows the example shops", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator('a[href="/b/demo-coffee"] img').first()).toHaveAttribute("src", "/places/coffee/hero.jpg");
+  await expect(page.locator('a[href="/b/demo-coffee"] img').first()).toHaveAttribute("src", "/shops/coffee.jpg");
 });
 
-test("an example owner page shows the shop's street above the deck and a photo of the job on each job card", async ({ page }) => {
+test("an example owner page shows the shop above the deck and a photo of the job on each job card", async ({ page }) => {
   await page.goto("/b/demo-coffee");
   const card = (name: RegExp) => page.getByRole("article", { name }).getByTestId("place-photo");
-  await expect(page.getByRole("region", { name: "Your business" }).getByTestId("place-photo")).toHaveAttribute("src", "/places/coffee/hero.jpg");
+  await expect(page.getByRole("region", { name: "Your business" }).getByTestId("place-photo")).toHaveAttribute("src", "/shops/coffee.jpg");
   // Job 1 of coffee (the website chat) has no preview video, so it shows a photo of the job being done.
   const img = card(/Website chat and FAQ/);
   await expect(img).toHaveAttribute("src", /^\/jobs\/(coffee\/)?website-chat(-2)?\.jpg$/);
   await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(0);
 });
 
-test("a live owner's photos come from the street photo route, at the shared location", async ({ page }) => {
+function liveOwner(page: import("@playwright/test").Page, website: string | null) {
   const profile = { name: "Bean & Brick Coffee", business_type: "coffee_shop", city: "Frederick", state: "MD", size: "s",
-    website: null, uses: [], pains: [], summary: "A coffee shop.", facts: [], lat: 39.4143, lon: -77.4105 };
+    website, uses: [], pains: [], summary: "A coffee shop.", facts: [], lat: 39.4143, lon: -77.4105 };
   const needs = { items: [
     { need_id: "website-chat", title: "Answer questions on your website", why: "w", est_hours_saved_week: 2 },
     { need_id: "shelf-stock", title: "Keep the shelves stocked", why: "w", est_hours_saved_week: 1 }] };
-  await page.route(`${API}/**`, async (route) => {
+  return page.route(`${API}/**`, async (route) => {
     const req = route.request();
     if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: CORS });
     const path = new URL(req.url()).pathname;
@@ -45,20 +56,52 @@ test("a live owner's photos come from the street photo route, at the shared loca
     }
     return route.abort();
   });
-  // The test server has no Maps key, so the real route 404s and the photo removes itself; answer it with a local photo.
-  await page.route("**/api/street?**", (route) => route.fulfill({ path: "public/places/coffee/hero.jpg" }));
+}
+
+const art = (kind: string, n?: number) => `/api/site-art?${new URLSearchParams({ site: "https://beanandbrick.example/", kind, ...(n ? { n: String(n) } : {}) })}`;
+
+test("a live owner's page shows photos and the logo from the shop's own website", async ({ page }) => {
+  await liveOwner(page, "beanandbrick.example");
+  // The test server can't reach the internet: answer the route with a local photo and a logo.
+  await page.route("**/api/site-art?**", (route) => route.fulfill({
+    path: new URL(route.request().url()).searchParams.get("kind") === "logo" ? "public/globe.svg" : "public/shops/coffee.jpg" }));
   await page.goto("/b/o_test000001");
+  const about = page.getByRole("region", { name: "Your business" });
+  await expect(about.getByTestId("place-photo")).toHaveAttribute("src", art("photo"));
+  await expect(about.getByTestId("shop-logo")).toHaveAttribute("src", art("logo"));
+  await expect(about.getByTestId("shop-logo")).toBeVisible();
+  // A job we have a photo for shows that photo; a job we know nothing about shows another photo of the shop.
   const card = (name: RegExp) => page.getByRole("article", { name }).getByTestId("place-photo");
-  await expect(page.getByRole("region", { name: "Your business" }).getByTestId("place-photo")).toHaveAttribute("src", "/api/street?lat=39.41430&lon=-77.41050");
-  // A job we have a photo for shows that photo; a job we know nothing about shows another angle of the street.
   await expect(card(/Answer questions on your website/)).toHaveAttribute("src", /^\/jobs\/website-chat(-2)?\.jpg$/);
   await page.getByRole("button", { name: "Not now" }).click();
-  await expect(card(/Keep the shelves stocked/)).toHaveAttribute("src", "/api/street?lat=39.41430&lon=-77.41050&view=2");
+  await expect(card(/Keep the shelves stocked/)).toHaveAttribute("src", art("photo", 2));
 });
 
-test("the street photo route refuses requests without a place", async ({ request }) => {
-  const r = await request.get("/api/street");
-  expect([400, 404]).toContain(r.status());
+test("without a photo on the site, the logo stands alone; without either, no empty box", async ({ page }) => {
+  await liveOwner(page, "https://beanandbrick.example");
+  let logo = true;
+  await page.route("**/api/site-art?**", (route) => new URL(route.request().url()).searchParams.get("kind") === "logo" && logo
+    ? route.fulfill({ path: "public/globe.svg" }) : route.fulfill({ status: 404, body: "none" }));
+  await page.goto("/b/o_test000001");
+  const about = page.getByRole("region", { name: "Your business" });
+  await expect(about.getByTestId("shop-logo")).toBeVisible();
+  await expect(about.getByTestId("place-photo")).toHaveCount(0);
+  expect((await about.getByTestId("shop-art").boundingBox())!.height).toBeLessThan(160);
+  logo = false;
+  await page.reload();
+  await expect(about.getByText("A coffee shop.")).toBeVisible();
+  await expect(about.getByTestId("shop-art")).toHaveCount(0);
+});
+
+test("an owner with no website of their own gets no photo and no street view", async ({ page }) => {
+  const asked: string[] = [];
+  page.on("request", (r) => /\/api\/(street|site-art)/.test(r.url()) && asked.push(r.url()));
+  await liveOwner(page, "https://www.facebook.com/beanandbrick");
+  await page.goto("/b/o_test000001");
+  const about = page.getByRole("region", { name: "Your business" });
+  await expect(about.getByText("A coffee shop.")).toBeVisible();
+  await expect(about.getByTestId("shop-art")).toHaveCount(0);
+  expect(asked).toEqual([]);
 });
 
 for (const [name, path, title] of [
@@ -81,7 +124,7 @@ for (const [name, path, title] of [
 
 test("tool cards show the tool's logo", async ({ page }) => {
   // Answer the icon service locally (any image bigger than its 16 px placeholder), so the test needs no network.
-  await page.route("https://www.google.com/s2/favicons**", (route) => route.fulfill({ path: "public/places/coffee/hero.jpg" }));
+  await page.route("https://www.google.com/s2/favicons**", (route) => route.fulfill({ path: "public/shops/coffee.jpg" }));
   await page.goto("/catalog");
   const first = page.getByTestId("tool-card").first();
   await expect(first.getByTestId("tool-logo")).toHaveAttribute("src", /favicons\?domain=/);
@@ -110,7 +153,8 @@ for (const [name, path, video] of [
   });
 }
 
-test("the business summary is its own section above the deck, and the deck starts on the first job", async ({ page }) => {
+test("on a phone the business summary is its own section above the deck, and the deck starts on the first job", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/b/demo-coffee");
   const about = page.getByRole("region", { name: "Your business" });
   await expect(about.getByText(/Daniel Ortiz runs Bean & Brick/)).toBeVisible();

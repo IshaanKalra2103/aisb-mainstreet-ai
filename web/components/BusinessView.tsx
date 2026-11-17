@@ -12,7 +12,7 @@ import { Approval, HELPERS, SetupRecordView } from "./SetupPanel";
 import OfflineBanner from "./OfflineBanner";
 import TurnLog from "./TurnLog";
 import ChatBox from "./ChatBox";
-import { jobPhoto, placePhoto } from "@/lib/places";
+import { jobPhoto, placePhoto, siteLogo } from "@/lib/places";
 import ToolLogo from "./ToolLogo";
 import Sheet from "./Sheet";
 
@@ -56,7 +56,7 @@ function previewSrc(p?: Preview): string | null {
   return mediaUrl(p.video_url);
 }
 
-/** A Street View photo of the shop's street; it hides itself when there is no photo for the place. */
+/** A photo of the shop; it hides itself when there is none. */
 function PlaceImg({ src, className }: { src: string; className: string }) {
   const [failed, setFailed] = useState<string | null>(null);
   if (failed === src) return null;
@@ -64,7 +64,62 @@ function PlaceImg({ src, className }: { src: string; className: string }) {
 }
 
 /**
- * The photo at the top of a card: the tool's preview video, else a photo of the shop's street, else a plain wash.
+ * The shop's own pictures above its summary: its photo with its logo on it, the logo alone when there is no photo,
+ * and nothing (no empty box) when neither loads. The logo sits on a chip of its own background colour when the file
+ * has one, else on white, or on near-black when the logo itself is light.
+ */
+function ShopArt({ photo, logo, name }: { photo: string | null; logo: string | null; name: string }) {
+  // A fixed height and auto width: an svg logo with only a viewBox would otherwise collapse to nothing.
+  const [photoOk, setPhotoOk] = useState(true);
+  const [logoOk, setLogoOk] = useState(true);
+  const [chip, setChip] = useState<string | null>(null);
+  const hasLogo = !!logo && logoOk;
+  if (!(photo && photoOk) && !hasLogo) return null;
+  const mark = (h: string) => hasLogo && (
+    <img data-testid="shop-logo" src={logo!} alt={`${name} logo`} decoding="async" onError={() => setLogoOk(false)}
+      onLoad={(e) => setChip(chipColour(e.currentTarget))} className={`block ${h} w-auto max-w-full object-contain`} />
+  );
+  if (photo && photoOk) {
+    return (
+      <div data-testid="shop-art" className="relative aspect-[16/9] overflow-hidden rounded-[var(--photo-radius)] bg-grey-tint">
+        <img data-testid="place-photo" src={photo} alt="" aria-hidden decoding="async" onError={() => setPhotoOk(false)} className="absolute inset-0 h-full w-full object-cover" />
+        {hasLogo && <span className="absolute bottom-3 left-3 flex max-w-[45%] items-center rounded-xl px-3 py-2 shadow-[0_2px_10px_rgb(0_0_0/.25)]" style={{ background: chip ?? "#fff" }}>{mark("h-8")}</span>}
+      </div>
+    );
+  }
+  return (
+    <div data-testid="shop-art" className="flex h-28 items-center justify-center rounded-[var(--photo-radius)] px-8 py-6" style={{ background: chip ?? "#fff" }}>
+      {mark("h-16")}
+    </div>
+  );
+}
+
+/** The chip behind a logo: the image's own corner colour if it has no transparency, else white, or near-black for a light logo. */
+function chipColour(img: HTMLImageElement): string | null {
+  try {
+    const c = document.createElement("canvas");
+    c.width = c.height = 24;
+    const g = c.getContext("2d", { willReadFrequently: true });
+    if (!g) return null;
+    g.drawImage(img, 0, 0, 24, 24);
+    const d = g.getImageData(0, 0, 24, 24).data;
+    let sum = 0, n = 0, clear = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 128) clear++;
+      else {
+        sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+        n++;
+      }
+    }
+    if (clear === 0) return `rgb(${d[0]} ${d[1]} ${d[2]})`;
+    return n && sum / n > 200 ? "#1b1c1f" : "#fff";
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The photo at the top of a card: the tool's preview video, else a photo of the job or of the shop, else a plain wash.
  * A soft shade at the top and bottom keeps the pills on it readable.
  */
 function CardPhoto({ src, img, className, children }: { src: string | null; img?: string | null; className?: string; children?: React.ReactNode }) {
@@ -336,7 +391,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
     if (c.kind === "job") return previewSrc(c.preview);
     return null;
   }
-  /** The photo for a job card: the job being done (another angle of the shop's street when we have no photo of it). */
+  /** The photo for a job card: the job being done (a photo of the shop when we have none of the job). */
   function cardImg(c: CardDef): string | null {
     if (c.kind === "job") return jobPhoto(ownerId, c.need.need_id) ?? placePhoto(ownerId, profile, c.n);
     return null;
@@ -423,6 +478,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   // A floor, not a fixed height: a card with more to say grows instead of clipping its text.
   const cardH = "deck-card flex flex-col min-h-[clamp(480px,calc(100dvh-300px),640px)] sm:min-h-[clamp(500px,calc(100dvh-320px),720px)]";
   const shopPhoto = profile ? placePhoto(ownerId, profile, 0) : null;
+  const shopLogo = profile ? siteLogo(ownerId, profile) : null;
   const tabsShown = !!bundle && (items.length > 0 || records.length > 0 || pending.length > 0 || mode === "setup");
 
   function renderSetup() {
@@ -468,182 +524,185 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
 
   return (
     <MotionConfig reducedMotion="user">
-      <div data-deck className="mx-auto w-full max-w-[460px] px-4 pt-3 pb-28">
-        {offline && live && <div className="mb-4"><OfflineBanner /></div>}
+      <div className="mx-auto w-full max-w-[460px] px-4 pt-3 pb-28 xl:grid xl:max-w-[min(1112px,calc(100vw_-_282px))] xl:grid-cols-2 xl:items-start xl:gap-x-12 xl:pt-8">
+        {offline && live && <div className="mb-4 xl:col-span-2"><OfflineBanner /></div>}
 
-        <p className="eyebrow truncate">{demo ? "Example business" : "Your business"}</p>
-        <h1 className="mt-1 text-[1.9rem] sm:text-[2.2rem] font-semibold leading-[1.05] text-balance">{profile?.name ?? "Getting to know your business"}</h1>
+        {/* The business. From 1280 px this is the left column; the columns stop 157 px short of the right edge, which the floating Ask us button holds. */}
+        <div>
+          <p className="eyebrow truncate">{demo ? "Example business" : "Your business"}</p>
+          <h1 className="mt-1 text-[1.9rem] sm:text-[2.2rem] xl:text-[2.6rem] font-semibold leading-[1.05] text-balance">{profile?.name ?? "Getting to know your business"}</h1>
 
-        {/* What we understood about the shop: part of the page, not a card, so the job cards below stand apart from it. */}
-        {profile && (
-          <section aria-label="Your business" className="mt-4">
-            {shopPhoto && (
-              <div className="relative aspect-[16/9] overflow-hidden rounded-[var(--photo-radius)] bg-grey-tint">
-                <PlaceImg src={shopPhoto} className="absolute inset-0 h-full w-full object-cover" />
-              </div>
-            )}
-            <p className="mt-4 eyebrow">{profile.facts?.length ? "What we found about your shop" : "Here's what we understood"}</p>
-            <p className="mt-1 text-lg text-muted">{BUSINESS_TYPE_LABELS[profile.business_type] ?? profile.business_type} in {profile.city}, {profile.state}</p>
-            <p className="mt-2 text-lg leading-snug">{profile.summary}</p>
-            {!!profile.facts?.length && (
-              <ul className="mt-3 flex flex-col gap-2">
-                {profile.facts.slice(0, 3).map((f) => (
-                  <li key={f.source_url + f.text}>
-                    <a data-testid="fact" href={f.source_url} target="_blank" rel="noopener"
-                      className="flex flex-col rounded-2xl bg-grey-tint px-3.5 py-2.5 text-grey-ink hover:no-underline active:scale-[0.98] transition-transform duration-150">
-                      <span className="text-base leading-snug">{f.text}</span>
-                      <span className="mt-0.5 text-sm text-muted">{hostOf(f.source_url)}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="text-base text-muted">Tools you already use:</span>
-              {profile.uses.length ? profile.uses.map((u) => (
-                <span key={u} className="rounded-full bg-grey-tint px-3 py-1 text-base text-grey-ink">{INTEGRATION_LABELS[u] ?? u}</span>
-              )) : <span className="text-base text-muted">none that we could see</span>}
-            </div>
-            <button type="button" onClick={() => setSheet({ kind: "chat" })}
-              className="mt-2 min-h-11 text-base font-semibold text-ink hover:underline underline-offset-4">Not right? Tell us</button>
-          </section>
-        )}
-
-        {items.length > 0 && (
-          <ul aria-label="At a glance" className="mt-4 grid grid-cols-3 gap-2 border-y border-line py-4 text-center">
-            <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums">{items.length}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">jobs for AI</span></li>
-            <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums text-accent">{hours}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">hours back a week</span></li>
-            <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums">{catalog.tools.length}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">tools checked</span></li>
-          </ul>
-        )}
-        {!active && lastEvent?.type === "error" && (
-          <p role="alert" className="mt-4 rounded-2xl bg-err-tint px-4 py-3 font-semibold text-brick">{eventLine(lastEvent)}</p>
-        )}
-
-        {tabsShown && (
-          <div ref={tabsRef} className="mt-7 scroll-mt-3">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-2xl font-semibold">{items.length ? `${items.length} ${items.length === 1 ? "job" : "jobs"} AI can take` : "Your plan"}</h2>
-              {/* On a phone, Ask us sits here instead of floating over the tabs (the deck has its own beside Back). */}
-              {!deckOnPhone && (
-                <button type="button" onClick={() => setSheet({ kind: "chat" })} className="btn btn-secondary !min-h-11 !px-4 shrink-0 sm:hidden">{Icon.chat}Ask us</button>
-              )}
-            </div>
-            <div role="group" aria-label="How to see your jobs" className="mt-3 grid grid-cols-3 gap-1 rounded-full bg-grey-tint p-1">
-              {TABS.map((t) => (
-                <button key={t.id} type="button" aria-pressed={mode === t.id} onClick={() => setMode(t.id)}
-                  className={`flex h-10 items-center justify-center gap-1.5 rounded-full text-base font-semibold transition-[background-color,color] duration-150 ${mode === t.id ? "bg-card text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
-                  {t.label}
-                  {t.id === "setup" && streams.length > 0 && (
-                    <span className="flex items-center gap-1 rounded-full bg-accent px-1.5 py-px text-xs font-bold text-[#141518]"><span aria-hidden className="soft-pulse size-1.5 rounded-full bg-current" />Live</span>
-                  )}
-                  {t.id === "setup" && !streams.length && pending.length > 0 && (
-                    <span className="grid size-5 place-items-center rounded-full bg-ink text-xs font-bold text-paper">{pending.length}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <LayoutGroup>
-          {showWorking ? (
-            <section aria-live="polite" aria-label="Progress" className={`card !rounded-[var(--deck-radius)] relative mt-5 overflow-hidden ${cardH}`}>
-              <div className="relative flex-1 flex flex-col items-center justify-center p-6 text-center">
-                <div className="soft-pulse h-20 w-20 rounded-full bg-[image:var(--orb)] shadow-[0_0_60px_var(--orb-glow)]" aria-hidden />
-                <p className="mt-8 eyebrow">Working on it</p>
-                <p className="mt-2 text-2xl font-semibold">{statusLine ? eventLine(statusLine) : "Loading your business..."}</p>
-                <p className="mt-3 text-lg text-muted">This can take a minute or two. You can leave this page open.</p>
-              </div>
-            </section>
-          ) : !bundle ? (
-            <div className="card mt-5 p-6">
-              <p className="text-lg">We could not load this business page. It may have expired, or our agent may be resting.</p>
-              <Link href="/demo" className="btn btn-primary mt-4">See the example businesses</Link>
-            </div>
-          ) : mode === "setup" ? (
-            <section aria-label="Setup" className="mt-5 grid gap-4">{renderSetup()}</section>
-          ) : mode === "overview" ? (
-            <div className="mt-5">
-              <ol aria-label="All jobs" className="grid gap-3">
-                {cards.map((c, i) => {
-                  if (c.kind !== "job") return null;
-                  const thumb = cardSrc(c);
-                  const still = thumb ? null : cardImg(c);
-                  return (
-                    <li key={c.key}>
-                      <motion.button layoutId={c.key} transition={spring} type="button" data-testid="need-item"
-                        onClick={() => { go(i); show("deck"); }}
-                        className="card !rounded-[22px] relative w-full overflow-hidden text-left hover:bg-raised active:scale-[0.98] transition-transform duration-150">
-                        <span className="relative flex items-center gap-3.5 p-3">
-                          {thumb
-                            ? <video src={`${thumb}#t=0.5`} muted playsInline preload="metadata" aria-hidden className="size-[76px] shrink-0 rounded-2xl object-cover bg-grey-tint" />
-                            : still
-                              ? <img src={still} alt="" aria-hidden loading="lazy" className="size-[76px] shrink-0 rounded-2xl object-cover bg-grey-tint" />
-                              : <span aria-hidden className="size-[76px] shrink-0 rounded-2xl bg-grey-tint" />}
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-semibold text-muted">Job {c.n} · {cardSub(c)}</span>
-                            <span className="mt-0.5 block text-lg font-semibold leading-tight">{c.need.title}</span>
-                            <span className="mt-1 flex items-center gap-1.5 text-base text-muted">
-                              {c.tool
-                                ? <><ToolLogo url={c.tool.url} className="size-4 rounded-[4px] bg-[#c8c9c4] p-[1.5px]" />Our pick: <strong className="font-semibold text-ink">{c.tool.name}</strong></>
-                                : "Not compared yet"}
-                            </span>
-                          </span>
-                          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-faint"><path d="M9 6l6 6-6 6" /></svg>
-                        </span>
-                      </motion.button>
+          {/* What we understood about the shop: part of the page, not a card, so the job cards below stand apart from it. */}
+          {profile && (
+            <section aria-label="Your business" className="mt-4">
+              <ShopArt key={`${shopPhoto}|${shopLogo}`} photo={shopPhoto} logo={shopLogo} name={profile.name} />
+              <p className="mt-4 eyebrow">{profile.facts?.length ? "What we found about your shop" : "Here's what we understood"}</p>
+              <p className="mt-1 text-lg text-muted">{BUSINESS_TYPE_LABELS[profile.business_type] ?? profile.business_type} in {profile.city}, {profile.state}</p>
+              <p className="mt-2 text-lg leading-snug">{profile.summary}</p>
+              {!!profile.facts?.length && (
+                <ul className="mt-3 flex flex-col gap-2">
+                  {profile.facts.slice(0, 3).map((f) => (
+                    <li key={f.source_url + f.text}>
+                      <a data-testid="fact" href={f.source_url} target="_blank" rel="noopener"
+                        className="flex flex-col rounded-2xl bg-grey-tint px-3.5 py-2.5 text-grey-ink hover:no-underline active:scale-[0.98] transition-transform duration-150">
+                        <span className="text-base leading-snug">{f.text}</span>
+                        <span className="mt-0.5 text-sm text-muted">{hostOf(f.source_url)}</span>
+                      </a>
                     </li>
-                  );
-                })}
-              </ol>
-              {!items.length && <p className="text-lg text-muted">No jobs yet. Tell us about your business and we will find them.</p>}
-            </div>
-          ) : current ? (
-            <section aria-label="Your cards" className="mt-4" onTouchStart={onTouchStart} onTouchMove={onTouchMove}>
-              <div className="relative">
-                {/* The stacked edge: more cards are waiting behind this one. */}
-                {at < cards.length - 1 && <div aria-hidden className="absolute inset-x-5 -bottom-3 h-12 rounded-b-[26px] bg-card/80 border border-line shadow-sm" />}
-                {at < cards.length - 2 && <div aria-hidden className="absolute inset-x-10 -bottom-6 h-12 rounded-b-[22px] bg-card/55 border border-line/70" />}
-                <AnimatePresence initial={false} mode="popLayout" custom={dir}>
-                  <motion.article
-                    key={current.key}
-                    layoutId={current.key}
-                    custom={dir}
-                    variants={{
-                      enter: (d: number) => ({ x: d * 60, opacity: 0, scale: 0.97 }),
-                      center: { x: 0, opacity: 1, scale: 1 },
-                      exit: (d: number) => ({ x: d * -320, opacity: 0, rotate: d * -4 }),
-                    }}
-                    initial="enter" animate="center" exit="exit"
-                    transition={spring}
-                    drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.7} onDragEnd={onDragEnd}
-                    aria-roledescription="card" aria-label={`${cardTitle(current)}, ${at + 1} of ${cards.length}`}
-                    className={`card !rounded-[var(--deck-radius)] relative overflow-hidden touch-pan-y ${cardH}`}
-                  >
-                    {renderCard(current)}
-                  </motion.article>
-                </AnimatePresence>
+                  ))}
+                </ul>
+              )}
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-base text-muted">Tools you already use:</span>
+                {profile.uses.length ? profile.uses.map((u) => (
+                  <span key={u} className="rounded-full bg-grey-tint px-3 py-1 text-base text-grey-ink">{INTEGRATION_LABELS[u] ?? u}</span>
+                )) : <span className="text-base text-muted">none that we could see</span>}
               </div>
-              <div className="mt-9 flex items-center gap-4">
-                <button type="button" className="btn btn-secondary !min-h-11 !px-5" disabled={at === 0} onClick={() => go(at - 1)}>Back</button>
-                <p className="text-base font-semibold tabular-nums text-muted" aria-live="polite">{at + 1} of {cards.length}</p>
-                <button type="button" onClick={() => setSheet({ kind: "chat" })} className="btn btn-secondary !min-h-11 !px-4 ml-auto sm:hidden">{Icon.chat}Ask us</button>
-              </div>
-              <p className="mt-3 text-sm text-faint sm:hidden">Swipe left for the next card, right to go back.</p>
-              <p className="mt-3 text-sm text-faint text-center hidden sm:block">Use the left and right arrow keys to move between cards.</p>
+              <button type="button" onClick={() => setSheet({ kind: "chat" })}
+                className="mt-2 min-h-11 text-base font-semibold text-ink hover:underline underline-offset-4">Not right? Tell us</button>
             </section>
-          ) : null}
-        </LayoutGroup>
+          )}
 
-        {lastReply && !active && live && (
-          <ul aria-label="Our latest reply" className="mt-5">
-            <li className="card !rounded-2xl rounded-tl-md px-4 py-3">
-              <span className="block text-sm font-semibold text-muted">MainStreet:</span>
-              <button type="button" onClick={() => setSheet({ kind: "chat" })} className="block w-full text-left text-lg line-clamp-4 whitespace-pre-line">{lastReply.text}</button>
-            </li>
-          </ul>
-        )}
+          {items.length > 0 && (
+            <ul aria-label="At a glance" className="mt-4 grid grid-cols-3 gap-2 border-y border-line py-4 text-center">
+              <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums">{items.length}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">jobs for AI</span></li>
+              <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums text-accent">{hours}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">hours back a week</span></li>
+              <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums">{catalog.tools.length}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">tools checked</span></li>
+            </ul>
+          )}
+        </div>
+
+        {/* Its jobs: the right column from 1280 px. */}
+        <div>
+          {!active && lastEvent?.type === "error" && (
+            <p role="alert" className="mt-4 rounded-2xl bg-err-tint px-4 py-3 font-semibold text-brick">{eventLine(lastEvent)}</p>
+          )}
+
+          {tabsShown && (
+            <div ref={tabsRef} className="mt-7 scroll-mt-3 xl:mt-0">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-2xl font-semibold">{items.length ? `${items.length} ${items.length === 1 ? "job" : "jobs"} AI can take` : "Your plan"}</h2>
+                {/* On a phone, Ask us sits here instead of floating over the tabs (the deck has its own beside Back). */}
+                {!deckOnPhone && (
+                  <button type="button" onClick={() => setSheet({ kind: "chat" })} className="btn btn-secondary !min-h-11 !px-4 shrink-0 sm:hidden">{Icon.chat}Ask us</button>
+                )}
+              </div>
+              <div role="group" aria-label="How to see your jobs" className="mt-3 grid grid-cols-3 gap-1 rounded-full bg-grey-tint p-1">
+                {TABS.map((t) => (
+                  <button key={t.id} type="button" aria-pressed={mode === t.id} onClick={() => setMode(t.id)}
+                    className={`flex h-10 items-center justify-center gap-1.5 rounded-full text-base font-semibold transition-[background-color,color] duration-150 ${mode === t.id ? "bg-card text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
+                    {t.label}
+                    {t.id === "setup" && streams.length > 0 && (
+                      <span className="flex items-center gap-1 rounded-full bg-accent px-1.5 py-px text-xs font-bold text-[#141518]"><span aria-hidden className="soft-pulse size-1.5 rounded-full bg-current" />Live</span>
+                    )}
+                    {t.id === "setup" && !streams.length && pending.length > 0 && (
+                      <span className="grid size-5 place-items-center rounded-full bg-ink text-xs font-bold text-paper">{pending.length}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <LayoutGroup>
+            {showWorking ? (
+              <section aria-live="polite" aria-label="Progress" className={`card !rounded-[var(--deck-radius)] relative mt-5 overflow-hidden ${cardH}`}>
+                <div className="relative flex-1 flex flex-col items-center justify-center p-6 text-center">
+                  <div className="soft-pulse h-20 w-20 rounded-full bg-[image:var(--orb)] shadow-[0_0_60px_var(--orb-glow)]" aria-hidden />
+                  <p className="mt-8 eyebrow">Working on it</p>
+                  <p className="mt-2 text-2xl font-semibold">{statusLine ? eventLine(statusLine) : "Loading your business..."}</p>
+                  <p className="mt-3 text-lg text-muted">This can take a minute or two. You can leave this page open.</p>
+                </div>
+              </section>
+            ) : !bundle ? (
+              <div className="card mt-5 p-6">
+                <p className="text-lg">We could not load this business page. It may have expired, or our agent may be resting.</p>
+                <Link href="/demo" className="btn btn-primary mt-4">See the example businesses</Link>
+              </div>
+            ) : mode === "setup" ? (
+              <section aria-label="Setup" className="mt-5 grid gap-4">{renderSetup()}</section>
+            ) : mode === "overview" ? (
+              <div className="mt-5">
+                <ol aria-label="All jobs" className="grid gap-3">
+                  {cards.map((c, i) => {
+                    if (c.kind !== "job") return null;
+                    const thumb = cardSrc(c);
+                    const still = thumb ? null : cardImg(c);
+                    return (
+                      <li key={c.key}>
+                        <motion.button layoutId={c.key} transition={spring} type="button" data-testid="need-item"
+                          onClick={() => { go(i); show("deck"); }}
+                          className="card !rounded-[22px] relative w-full overflow-hidden text-left hover:bg-raised active:scale-[0.98] transition-transform duration-150">
+                          <span className="relative flex items-center gap-3.5 p-3">
+                            {thumb
+                              ? <video src={`${thumb}#t=0.5`} muted playsInline preload="metadata" aria-hidden className="size-[76px] shrink-0 rounded-2xl object-cover bg-grey-tint" />
+                              : still
+                                ? <img src={still} alt="" aria-hidden loading="lazy" className="size-[76px] shrink-0 rounded-2xl object-cover bg-grey-tint" />
+                                : <span aria-hidden className="size-[76px] shrink-0 rounded-2xl bg-grey-tint" />}
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold text-muted">Job {c.n} · {cardSub(c)}</span>
+                              <span className="mt-0.5 block text-lg font-semibold leading-tight">{c.need.title}</span>
+                              <span className="mt-1 flex items-center gap-1.5 text-base text-muted">
+                                {c.tool
+                                  ? <><ToolLogo url={c.tool.url} className="size-4 rounded-[4px] bg-[#c8c9c4] p-[1.5px]" />Our pick: <strong className="font-semibold text-ink">{c.tool.name}</strong></>
+                                  : "Not compared yet"}
+                              </span>
+                            </span>
+                            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-faint"><path d="M9 6l6 6-6 6" /></svg>
+                          </span>
+                        </motion.button>
+                      </li>
+                    );
+                  })}
+                </ol>
+                {!items.length && <p className="text-lg text-muted">No jobs yet. Tell us about your business and we will find them.</p>}
+              </div>
+            ) : current ? (
+              <section aria-label="Your cards" className="mt-4" onTouchStart={onTouchStart} onTouchMove={onTouchMove}>
+                <div className="relative">
+                  {/* The stacked edge: more cards are waiting behind this one. */}
+                  {at < cards.length - 1 && <div aria-hidden className="absolute inset-x-5 -bottom-3 h-12 rounded-b-[26px] bg-card/80 border border-line shadow-sm" />}
+                  {at < cards.length - 2 && <div aria-hidden className="absolute inset-x-10 -bottom-6 h-12 rounded-b-[22px] bg-card/55 border border-line/70" />}
+                  <AnimatePresence initial={false} mode="popLayout" custom={dir}>
+                    <motion.article
+                      key={current.key}
+                      layoutId={current.key}
+                      custom={dir}
+                      variants={{
+                        enter: (d: number) => ({ x: d * 60, opacity: 0, scale: 0.97 }),
+                        center: { x: 0, opacity: 1, scale: 1 },
+                        exit: (d: number) => ({ x: d * -320, opacity: 0, rotate: d * -4 }),
+                      }}
+                      initial="enter" animate="center" exit="exit"
+                      transition={spring}
+                      drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.7} onDragEnd={onDragEnd}
+                      aria-roledescription="card" aria-label={`${cardTitle(current)}, ${at + 1} of ${cards.length}`}
+                      className={`card !rounded-[var(--deck-radius)] relative overflow-hidden touch-pan-y ${cardH}`}
+                    >
+                      {renderCard(current)}
+                    </motion.article>
+                  </AnimatePresence>
+                </div>
+                <div className="mt-9 flex items-center gap-4">
+                  <button type="button" className="btn btn-secondary !min-h-11 !px-5" disabled={at === 0} onClick={() => go(at - 1)}>Back</button>
+                  <p className="text-base font-semibold tabular-nums text-muted" aria-live="polite">{at + 1} of {cards.length}</p>
+                  <button type="button" onClick={() => setSheet({ kind: "chat" })} className="btn btn-secondary !min-h-11 !px-4 ml-auto sm:hidden">{Icon.chat}Ask us</button>
+                </div>
+                <p className="mt-3 text-sm text-faint sm:hidden">Swipe left for the next card, right to go back.</p>
+                <p className="mt-3 text-sm text-faint text-center hidden sm:block">Use the left and right arrow keys to move between cards.</p>
+              </section>
+            ) : null}
+          </LayoutGroup>
+
+          {lastReply && !active && live && (
+            <ul aria-label="Our latest reply" className="mt-5">
+              <li className="card !rounded-2xl rounded-tl-md px-4 py-3">
+                <span className="block text-sm font-semibold text-muted">MainStreet:</span>
+                <button type="button" onClick={() => setSheet({ kind: "chat" })} className="block w-full text-left text-lg line-clamp-4 whitespace-pre-line">{lastReply.text}</button>
+              </li>
+            </ul>
+          )}
+        </div>
       </div>
 
       {!sheet && <button type="button" onClick={() => setSheet({ kind: "chat" })} aria-label="Ask us a question"

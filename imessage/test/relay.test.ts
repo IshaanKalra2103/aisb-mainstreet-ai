@@ -315,10 +315,11 @@ test("without the location kit, the shop card goes out as before", async () => {
   assert.ok(h.events.includes(`card:${SHOP}`));
 });
 
-// The owner's page goes out as an iMessage app card: street photo, shop name, and the plan in numbers.
+// The owner's page goes out as an iMessage app card: a photo from the shop's own website, its name, and the plan in numbers.
 const PAGE = "https://web.test/b/o_abc123";
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
-const PROFILE = { name: "Bean & Brick Coffee", business_type: "coffee_shop", city: "Frederick", state: "MD", lat: 39.4143, lon: -77.4105 };
+const PROFILE = { name: "Bean & Brick Coffee", business_type: "coffee_shop", city: "Frederick", state: "MD", lat: 39.4143, lon: -77.4105, website: "beanandbrick.example" };
+const SITE_PHOTO = "https://web.test/api/site-art?site=beanandbrick.example&kind=photo";
 const NEEDS = { items: [2, 2, 1, 1].map((h, i) => ({ need_id: `n${i}`, title: `Job ${i}`, est_hours_saved_week: h })) };
 
 function cardHarness(bundle: unknown, photo: Response | (() => Response) = () => new Response(JPEG)) {
@@ -326,7 +327,7 @@ function cardHarness(bundle: unknown, photo: Response | (() => Response) = () =>
   const h = harness(
     (c) => {
       if (c.url === "http://api.test/api/owners/o_abc123") return bundle === null ? new Response("no", { status: 500 }) : json(200, bundle);
-      if (c.url.startsWith("https://web.test/api/street")) return typeof photo === "function" ? photo() : photo;
+      if (c.url.startsWith("https://web.test/api/")) return typeof photo === "function" ? photo() : photo;
       return json(200, { replies: ["Your plan is ready."], links: [PAGE] });
     },
     {
@@ -340,11 +341,12 @@ function cardHarness(bundle: unknown, photo: Response | (() => Response) = () =>
   return { ...h, cards };
 }
 
-test("the page link goes out as an app card with the street photo and the plan's numbers", async () => {
+test("the page link goes out as an app card with a photo from the shop's website and the plan's numbers", async () => {
   const h = cardHarness({ profile: PROFILE, needs: NEEDS });
   assert.equal(await handleMessage(msg(), h.deps), "replied");
   assert.deepEqual(h.events.filter((e) => !e.startsWith("sleep")), ["send:Your plan is ready.", `app:${PAGE}`]);
-  assert.ok(h.calls.some((c) => c.url === "https://web.test/api/street?lat=39.41430&lon=-77.41050"));
+  assert.ok(h.calls.some((c) => c.url === SITE_PHOTO));
+  assert.ok(!h.calls.some((c) => c.url.includes("/api/street")));
   const { image, ...rest } = h.cards[0]!.layout;
   assert.deepEqual(image, JPEG);
   assert.deepEqual(rest, {
@@ -358,10 +360,17 @@ test("the page link goes out as an app card with the street photo and the plan's
   });
 });
 
-test("no street photo: the card keeps the name and numbers without an image", async () => {
-  const h = cardHarness({ profile: { ...PROFILE, lat: null, lon: null }, needs: { items: NEEDS.items.slice(0, 1) } }, () => new Response("none", { status: 404 }));
+test("an owner with no website: no photo is asked for and the card keeps the name and numbers", async () => {
+  const h = cardHarness({ profile: { ...PROFILE, website: null }, needs: { items: NEEDS.items.slice(0, 1) } });
   await handleMessage(msg(), h.deps);
-  assert.ok(h.calls.some((c) => c.url === "https://web.test/api/street?q=Frederick%2C+MD"));
+  assert.ok(!h.calls.some((c) => c.url.startsWith("https://web.test/api/")));
+  assert.equal(h.cards[0]!.layout.image, undefined);
+});
+
+test("no usable photo on the site: the card keeps the name and numbers without an image", async () => {
+  const h = cardHarness({ profile: PROFILE, needs: { items: NEEDS.items.slice(0, 1) } }, () => new Response("none", { status: 404 }));
+  await handleMessage(msg(), h.deps);
+  assert.ok(h.calls.some((c) => c.url === SITE_PHOTO));
   assert.deepEqual(h.cards[0]!.layout, {
     caption: "Bean & Brick Coffee",
     subcaption: "Your AI plan · 1 job AI can take",

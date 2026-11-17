@@ -4,10 +4,11 @@ import type { OwnerBundle } from "@/lib/types";
 import { demoBundles } from "@/data/demo";
 import { BUSINESS_TYPE_LABELS } from "@/lib/catalog";
 import { AGENT_URL } from "@/lib/api";
-import { streetPhoto } from "@/lib/streetview";
-import { BG, Brand, Chip, INK, OG_SIZE, jpegUri, mapImage, ogFonts, publicImage } from "@/lib/og";
+import { ownSite } from "@/lib/places";
+import { MIME, normalizeSite, siteArt } from "@/lib/siteart";
+import { BG, Brand, Chip, INK, OG_SIZE, mapImage, ogFonts, publicImage } from "@/lib/og";
 
-// The card iMessage shows for an owner's page: their street, their name, and what the plan gives back.
+// The card iMessage shows for an owner's page: a photo from their own website, their name, and what the plan gives back.
 export const alt = "Your MainStreet AI plan";
 export const size = OG_SIZE;
 export const contentType = "image/png";
@@ -28,14 +29,14 @@ export default async function Image({ params }: { params: Promise<{ ownerId: str
   let bundle: OwnerBundle | null = slug ? demoBundles[slug] ?? null : null;
   let photo: string | null = null;
   if (slug && bundle) {
-    photo = await publicImage(`places/${slug}/hero.jpg`);
+    photo = await publicImage(`shops/${slug}.jpg`);
   } else if (!slug) {
     await connection(); // a live owner's plan changes: draw it when asked
     bundle = await liveBundle(ownerId);
-    const p = bundle?.profile;
-    const place = p?.lat != null && p?.lon != null ? { lat: p.lat, lon: p.lon } : p?.city ? { q: `${p.city}, ${p.state}` } : null;
-    const bytes = place ? await streetPhoto(place, 0).catch(() => null) : null;
-    if (bytes) photo = jpegUri(bytes);
+    const site = normalizeSite(ownSite(bundle?.profile?.website));
+    const art = site ? await Promise.race([siteArt(site), new Promise<null>((r) => setTimeout(() => r(null), 8000))]) : null;
+    const pic = art?.photos.find((x) => x.type === "jpeg" || x.type === "png"); // what the card renderer can draw
+    if (pic) photo = `data:${MIME[pic.type]};base64,${pic.body.toString("base64")}`;
   }
   const p = bundle?.profile;
   const items = bundle?.needs?.items ?? [];

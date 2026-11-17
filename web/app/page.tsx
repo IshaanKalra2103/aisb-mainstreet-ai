@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Intake from "@/components/Intake";
-import StreetTile from "@/components/StreetTile";
+import ShopTile from "@/components/ShopTile";
 import { DEMO_BUSINESSES } from "@/data/demo";
 
 const HERO = ["coffee", "salon", "diner"].map((slug) => DEMO_BUSINESSES.find((b) => b.slug === slug)!).filter(Boolean);
@@ -18,11 +18,11 @@ export default function Home() {
         </p>
         <Intake />
         </div>
-        {/* Desktop: the example streets sit beside the form. Phones get the strip below. */}
+        {/* Desktop: the example shops sit beside the form. Phones get the strip below. */}
         <ul aria-label="Example businesses" className="hidden lg:grid grid-cols-2 gap-4 pt-2">
           {HERO.map((b, i) => (
             <li key={b.slug} className={i === 0 ? "row-span-2 self-center" : ""}>
-              <StreetTile slug={b.slug} name={b.name} place={b.place} kind={b.kind} aspect={i === 0 ? "aspect-[3/4]" : "aspect-[4/3]"} />
+              <ShopTile slug={b.slug} name={b.name} place={b.place} kind={b.kind} aspect={i === 0 ? "aspect-[3/4]" : "aspect-[4/3]"} />
             </li>
           ))}
         </ul>
@@ -35,7 +35,7 @@ export default function Home() {
         <ul className="mt-4 -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-5 sm:overflow-visible sm:px-0">
           {DEMO_BUSINESSES.map((b) => (
             <li key={b.slug} className="w-[44%] shrink-0 snap-start sm:w-auto">
-              <StreetTile slug={b.slug} name={b.name} place={b.place} kind={b.kind} />
+              <ShopTile slug={b.slug} name={b.name} place={b.place} kind={b.kind} />
             </li>
           ))}
         </ul>

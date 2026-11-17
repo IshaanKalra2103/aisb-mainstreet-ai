@@ -6,7 +6,7 @@ import { demoBundles } from "@/data/demo";
 import { APP_NAME } from "@/lib/brand";
 import { ogVideo } from "@/lib/ogVideo";
 
-// The iMessage card for the owner's link: og:title under the big image (opengraph-image.tsx draws the shop's street).
+// The iMessage card for the owner's link: og:title under the big image (opengraph-image.tsx draws a photo of the shop).
 // A live owner's name is in the image; the title stays generic so the page never waits on the agent to render it.
 export async function generateMetadata({ params }: PageProps<"/b/[ownerId]">): Promise<Metadata> {
   const { ownerId } = await params;

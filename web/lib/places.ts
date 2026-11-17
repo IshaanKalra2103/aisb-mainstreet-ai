@@ -1,36 +1,44 @@
 import type { Profile } from "./types";
 
-/** How many job photos each example business has in public/places/<slug>/ (job-1.jpg ... job-n.jpg). */
-const DEMO_JOBS: Record<string, number> = { coffee: 4, diner: 3, hvac: 3, landscaping: 4, salon: 4 };
+/** The example businesses: their sites have no photos, so each has a stock photo of that kind of shop in
+ * public/shops/<slug>.jpg (Pexels; credits.json beside them). Never a street view: that shows the street, not the shop. */
+const DEMO_SHOPS = new Set(["coffee", "diner", "hvac", "landscaping", "salon"]);
 
-export function demoPhoto(slug: string): string | null {
-  return DEMO_JOBS[slug] ? `/places/${slug}/hero.jpg` : null;
+/** Sites that aren't the shop's own (a listing or social page): their pictures are the platform's, not the shop's. */
+const NOT_OWN = /(^|\.)(google\.[a-z.]+|goo\.gl|facebook\.com|instagram\.com|yelp\.com|tripadvisor\.[a-z.]+|doordash\.com|ubereats\.com|grubhub\.com|linktr\.ee|tiktok\.com|x\.com|twitter\.com)$/i;
+
+/** The shop's own website from its profile, as an https URL, or null when it has none of its own. */
+export function ownSite(website: string | null | undefined): string | null {
+  const s = website?.trim();
+  if (!s) return null;
+  try {
+    const u = new URL(/^https?:\/\//i.test(s) ? s : `https://${s}`);
+    return NOT_OWN.test(u.hostname) ? null : u.href;
+  } catch {
+    return null;
+  }
+}
+
+/** The shop's logo, taken from its own website. Null without one (and for the example businesses). */
+export function siteLogo(ownerId: string, profile: Profile | null | undefined): string | null {
+  const site = ownerId.startsWith("demo-") ? null : ownSite(profile?.website);
+  return site ? `/api/site-art?${new URLSearchParams({ site, kind: "logo" })}` : null;
 }
 
 /**
- * A Street View photo of the shop's street. View 0 faces the shop; view n is the n-th job card's angle on the same
- * street. Example businesses use the photos saved in public/places; live owners go through /api/street, which keeps
- * the Maps key on the server. Null when we know nothing about where the shop is.
+ * A photo of the shop. View 0 is the main one; view n is the n-th job card's. Example businesses use their photo in
+ * public/shops; live owners get photos from their own website through /api/site-art. Null without a website.
  */
 export function placePhoto(ownerId: string, profile: Profile | null | undefined, view = 0): string | null {
   if (ownerId.startsWith("demo-")) {
     const slug = ownerId.slice(5);
-    const n = DEMO_JOBS[slug];
-    if (!n) return null;
-    return view === 0 ? `/places/${slug}/hero.jpg` : `/places/${slug}/job-${((view - 1) % n) + 1}.jpg`;
+    return DEMO_SHOPS.has(slug) ? `/shops/${slug}.jpg` : null;
   }
-  if (!profile) return null;
-  const q = new URLSearchParams();
-  if (profile.lat != null && profile.lon != null) {
-    q.set("lat", profile.lat.toFixed(5));
-    q.set("lon", profile.lon.toFixed(5));
-  } else if (profile.city) {
-    q.set("q", [profile.city, profile.state].filter(Boolean).join(", "));
-  } else {
-    return null;
-  }
-  if (view) q.set("view", String(view));
-  return `/api/street?${q}`;
+  const site = ownSite(profile?.website);
+  if (!site) return null;
+  const q = new URLSearchParams({ site, kind: "photo" });
+  if (view) q.set("n", String(view % 4));
+  return `/api/site-art?${q}`;
 }
 
 /** Stock photos of each kind of job, in public/jobs/<need_id>.jpg (Pexels; credits.json beside them). Value: how many shots. */
@@ -50,7 +58,7 @@ const DEMO_JOB_PHOTOS: Record<string, string[]> = {
 
 /**
  * A photo of the job being done: the example business's own photo, else a stock photo of that kind of job (owners
- * whose ids hash differently get different shots), else null, and the card falls back to the street.
+ * whose ids hash differently get different shots), else null, and the card falls back to a photo of the shop.
  */
 export function jobPhoto(ownerId: string, needId: string): string | null {
   const slug = ownerId.startsWith("demo-") ? ownerId.slice(5) : "";

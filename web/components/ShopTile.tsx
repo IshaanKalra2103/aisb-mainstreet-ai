@@ -1,13 +1,13 @@
 import Link from "next/link";
 
-/** An example business as a photo of its street, with its name over the photo. */
-export default function StreetTile({ slug, name, place, kind, stats, big, aspect }: {
+/** An example business as a photo of that kind of shop, with its name over the photo. */
+export default function ShopTile({ slug, name, place, kind, stats, big, aspect }: {
   slug: string; name: string; place: string; kind: string; stats?: string; big?: boolean; aspect?: string;
 }) {
   return (
     <Link href={`/b/demo-${slug}`}
       className="group relative block overflow-hidden rounded-[22px] bg-ink text-white !no-underline shadow-[0_1px_2px_rgba(0,0,0,.06),0_14px_36px_rgba(17,18,20,.14)] transition-transform duration-200 ease-out active:scale-[0.98]">
-      <img src={`/places/${slug}/hero.jpg`} alt={`A street in ${place}`} loading="lazy" decoding="async"
+      <img src={`/shops/${slug}.jpg`} alt="" loading="lazy" decoding="async"
         className={`w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03] ${aspect ?? (big ? "aspect-[16/10]" : "aspect-[4/5] sm:aspect-[3/4]")}`} />
       <div aria-hidden className="absolute inset-0 bg-[linear-gradient(to_top,rgb(10_11_13/.88),rgb(10_11_13/.35)_45%,transparent_70%)]" />
       <div className={`absolute inset-x-0 bottom-0 bg-[linear-gradient(to_top,rgb(10_11_13/.82),rgb(10_11_13/.66)_calc(100%_-_3.5rem),transparent)] pt-14 ${big ? "px-5 pb-5 sm:px-6 sm:pb-6" : "px-3.5 pb-3.5 sm:px-4 sm:pb-4"}`}>

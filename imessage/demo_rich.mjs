@@ -1,5 +1,5 @@
 // Demo of MainStreet AI's native iMessage UI, sent from the project's Photon line to one phone:
-// a plan card with the shop's street photo, a job card, a yes/no poll and a "done" text with confetti.
+// a plan card with a photo of the shop, a job card, a yes/no poll and a "done" text with confetti.
 // Uses the example business Bean & Brick Coffee (web/data/demo/coffee.json). Send-only: the relay owns the inbound stream,
 // so a vote on the poll here is not acted on.
 //
@@ -22,7 +22,7 @@ if (!values.to || !/^\+\d{8,15}$/.test(values.to)) {
   console.log(JSON.stringify({ ok: false, error: "--to must be an E.164 number" }));
   process.exit(2);
 }
-const photo = (name) => new Uint8Array(readFileSync(new URL(`../web/public/places/coffee/${name}`, import.meta.url)));
+const photo = (name) => new Uint8Array(readFileSync(new URL(`../web/public/${name}`, import.meta.url)));
 const page = `${values.web}/b/demo-coffee`;
 
 /** iMessage app card (the balloon Apple's own Polls use), opened through Photon's Spectrum iMessage app. */
@@ -47,7 +47,7 @@ try {
   }
   await dm.send(
     card(page, {
-      image: photo("hero.jpg"),
+      image: photo("shops/coffee.jpg"),
       imageTitle: "Bean & Brick Coffee",
       imageSubtitle: "Coffee shop · Frederick, MD",
       caption: "Your AI plan",
@@ -60,7 +60,7 @@ try {
   await pause();
   await dm.send(
     card(page, {
-      image: photo("job-2.jpg"),
+      image: photo("jobs/coffee/website-chat.jpg"),
       imageTitle: "Website chat and FAQ",
       imageSubtitle: "Job 1 of 4",
       caption: "Our pick: Chatling",

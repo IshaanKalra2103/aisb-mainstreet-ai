@@ -27,7 +27,7 @@ export async function publicImage(path: string, type = "image/jpeg"): Promise<st
   return `data:${type};base64,${(await readFile(join(process.cwd(), "public", path))).toString("base64")}`;
 }
 
-/** The dark street map (public/places/map.jpg), the backdrop when there is no street photo. */
+/** The dark street map (public/places/map.jpg), the backdrop when there is no photo of the shop. */
 export async function mapImage(): Promise<string> {
   return `data:image/jpeg;base64,${(await readFile(join(process.cwd(), "public/places/map.jpg"))).toString("base64")}`;
 }

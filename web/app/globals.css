@@ -118,8 +118,6 @@ img, video { max-width: 100%; }
 .soft-pulse { animation: soft-pulse 2.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .soft-pulse { animation: none; } .btn { transition: none; } }
 
-/* On a phone the owner deck needs the whole screen; the site header comes back on wider screens. */
-@media (max-width: 640px) { body:has([data-deck]) > header { display: none; } }
 
 /* Short phones (about 390x664 and under): a shorter deck card keeps the card clear of the floating Ask us button. */
 @media (max-width: 639px) and (max-height: 700px) { .deck-card { min-height: clamp(380px, calc(100dvh - 300px), 640px); } }

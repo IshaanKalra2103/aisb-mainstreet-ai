@@ -115,9 +115,9 @@ const hoursLabel = (h: number) => {
 };
 
 /**
- * The plan card for an owner's page link: the street photo (the web's /api/street, as on the page), the shop's name
- * and place, the number of jobs and the hours back a week. Null until the agent has a profile and jobs, or when
- * the page can't be read; the page then goes out as a link card.
+ * The plan card for an owner's page link: a photo from the shop's own website (the web's /api/site-art, as on the
+ * page), the shop's name and place, the number of jobs and the hours back a week. Null until the agent has a profile
+ * and jobs, or when the page can't be read; the page then goes out as a link card.
  */
 export async function planCard(url: string, deps: RelayDeps): Promise<CardLayout | null> {
   const m = PAGE_RE.exec(url);
@@ -140,15 +140,12 @@ export async function planCard(url: string, deps: RelayDeps): Promise<CardLayout
   const kind = KINDS[p.business_type] ?? "";
   const nums = { trailingCaption: hoursLabel(hours), trailingSubcaption: "back a week", summary: `${p.name}: your AI plan` };
 
-  const q = new URLSearchParams();
-  if (typeof p.lat === "number" && typeof p.lon === "number") {
-    q.set("lat", p.lat.toFixed(5));
-    q.set("lon", p.lon.toFixed(5));
-  } else if (place) q.set("q", place);
+  // A photo from the shop's own website (the web app finds and checks it); none without a website.
+  const site = typeof p.website === "string" ? p.website.trim() : "";
   let image: Uint8Array<ArrayBuffer> | undefined;
-  if (q.size) {
+  if (site) {
     try {
-      const res = await deps.fetch(`${origin}/api/street?${q}`, { signal: AbortSignal.timeout(10_000) });
+      const res = await deps.fetch(`${origin}/api/site-art?${new URLSearchParams({ site, kind: "photo" })}`, { signal: AbortSignal.timeout(15_000) });
       const bytes = res.ok ? new Uint8Array(await res.arrayBuffer()) : null;
       if (bytes && bytes.length > 2 && bytes.length <= MAX_PHOTO_BYTES && bytes[0] === 0xff && bytes[1] === 0xd8) image = bytes;
     } catch {

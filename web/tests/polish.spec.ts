@@ -246,3 +246,42 @@ test("the Share button is grey while there is nothing to share, and lime once th
   await expect(share).toBeEnabled();
   expect(await shownColor(share)).toEqual([215, 255, 58]);
 });
+
+// 10. The site header stays on a phone's owner page, so the examples and the catalog are one tap away
+test("on a phone the owner page keeps the site header", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto("/b/demo-coffee");
+  const nav = page.getByRole("navigation", { name: "Main" });
+  await expect(nav).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Examples" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Tool catalog" })).toBeVisible();
+});
+
+// 11. On a computer the owner page has two columns: the business on the left, its jobs on the right
+test("on a computer the business sits left of its jobs, with the tabs level with the business name", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await page.goto("/b/demo-coffee");
+  const about = (await page.getByRole("region", { name: "Your business" }).boundingBox())!;
+  const tabs = (await page.getByRole("group", { name: "How to see your jobs" }).boundingBox())!;
+  const deck = (await page.getByRole("region", { name: "Your cards" }).boundingBox())!;
+  for (const r of [tabs, deck]) {
+    expect(r.x).toBeGreaterThanOrEqual(about.x + about.width);
+    expect(r.y).toBeLessThan(about.y + about.height);
+  }
+  const h1 = (await page.getByRole("heading", { level: 1 }).boundingBox())!;
+  expect(Math.abs(tabs.y - h1.y)).toBeLessThan(160);
+  expect(deck.x + deck.width - about.x).toBeGreaterThan(900);
+});
+
+// 11b. Beside the jobs, the floating Ask us button sits in the margin and never covers a card
+for (const width of [1024, 1280, 1440]) {
+  test(`at ${width} px the Ask us button stays clear of the jobs`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/b/demo-coffee");
+    const ask = (await page.getByRole("button", { name: "Ask us a question" }).boundingBox())!;
+    for (const name of ["Your cards", "Your business"]) {
+      const r = (await page.getByRole("region", { name }).boundingBox())!;
+      expect(r.x + r.width, `${name} ends left of the button`).toBeLessThanOrEqual(ask.x - 8);
+    }
+  });
+}
