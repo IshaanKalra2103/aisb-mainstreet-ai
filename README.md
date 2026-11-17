@@ -101,10 +101,7 @@ Keys come from the macOS Keychain: `TINYFISH_API_KEY`, `OPENROUTER_API_KEY`, `AG
 <br>
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/wordmark-dark.png">
-    <img src="docs/assets/brand/wordmark-light.png" height="36" alt="MainStreet AI">
-  </picture>
+  <img src="docs/assets/brand/wordmark-card.png" height="56" alt="MainStreet AI">
   <br>
   <sub>Team Forge &middot; UMD AI for Small Business Hack-a-thon, Fall 2026</sub>
 </p>
