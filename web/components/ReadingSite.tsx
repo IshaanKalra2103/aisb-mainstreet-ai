@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ObIcon } from "./obIcons";
+import MascotLogo from "./MascotLogo";
 
 /**
  * The wait while the agent works (sheet panel F): a pulse around the shop's photo, or the mascot before we have one
@@ -18,7 +19,7 @@ export default function ReadingSite({ title, steps, photo }: { title: string; st
         <span className="ob-ring" /><span className="ob-ring" />
         {shop
           ? <img src={shop} alt="" onError={() => setFailed(shop)} />
-          : <img src="/brand/mascot.webp" alt="" className="ob-mascot-img" />}
+          : <span className="ob-mascot-live"><MascotLogo size={96} wordmark={false} /></span>}
       </div>
       <h2 className="mt-7 text-[1.9rem] leading-[1.1] text-balance">{title}</h2>
       <div className="ob-meter" aria-hidden><i style={{ transform: `scaleX(${fill})` }} /></div>

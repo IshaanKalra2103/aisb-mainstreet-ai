@@ -5,6 +5,7 @@ import "./globals.css";
 import "./graphite.css";
 import "./onboarding.css";
 import { APP_NAME, TAGLINE } from "@/lib/brand";
+import MascotLogo from "@/components/MascotLogo";
 import NavLinks from "@/components/NavLinks";
 import TextUsPass from "@/components/TextUsPass";
 import { SITE_URL, ogVideo } from "@/lib/ogVideo";
@@ -17,7 +18,8 @@ export const metadata: Metadata = {
   description: TAGLINE,
   openGraph: {
     title: APP_NAME, description: TAGLINE, siteName: APP_NAME, type: "video.other",
-    images: [{ url: "/og/home.jpg", width: 1200, height: 630 }], videos: ogVideo("home"),
+    // The mascot's 6 s idle loop (web/public/og/mascot.mp4): links to the site play it inline in iMessage.
+    images: [{ url: "/og/mascot.jpg", width: 1200, height: 630 }], videos: ogVideo("mascot"),
   },
   // Link cards (iMessage, Slack) show the big image only for summary_large_image; og:image needs an absolute URL.
   twitter: { card: "summary_large_image" },
@@ -30,8 +32,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-screen flex flex-col overflow-x-hidden">
         <header className="relative z-30 border-b border-line/70 bg-card/60 backdrop-blur">
           <div className="mx-auto max-w-5xl px-4 py-1 flex items-center justify-between gap-x-4">
-            <Link href="/" className="text-xl font-semibold text-ink !no-underline py-2.5 whitespace-nowrap">
-              {APP_NAME}<span aria-hidden className="ml-1 inline-block size-1.5 rounded-full bg-accent align-middle" />
+            {/* The mascot pops in and says hello once per visit (the layout stays mounted across pages), then idles. */}
+            <Link href="/" aria-label={APP_NAME} className="text-ink !no-underline py-1.5 whitespace-nowrap">
+              <MascotLogo size={42} className="hdr-logo" />
             </Link>
             <div className="flex items-center gap-4 sm:gap-6"><NavLinks /><TextUsPass /></div>
           </div>

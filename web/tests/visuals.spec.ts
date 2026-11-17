@@ -133,9 +133,9 @@ test("tool cards show the tool's logo", async ({ page }) => {
 
 // iMessage plays og:video as a muted looping preview of the link (Apple TN3156): a direct mp4 at the og:image's size.
 for (const [name, path, video] of [
-  ["home page", "/", "/og/home.mp4"],
+  ["home page", "/", "/og/mascot.mp4"],
   ["example owner page", "/b/demo-coffee", "/og/demo-coffee.mp4"],
-  ["live owner page", "/b/o_test000001", "/og/home.mp4"],
+  ["live owner page", "/b/o_test000001", "/og/mascot.mp4"],
 ] as const) {
   test(`the ${name} has a looping video link preview`, async ({ page, request }) => {
     await page.goto(path);

@@ -14,8 +14,8 @@ export async function generateMetadata({ params }: PageProps<"/b/[ownerId]">): P
   const title = p?.name ?? "Your AI plan";
   const description = p ? `What AI can take off the plate at ${p.name} in ${p.city}, ${p.state}, and which tools we checked.`
     : "The jobs AI can take off your plate, the tools we checked, and what we set up for you.";
-  // The link plays as a short loop in iMessage: an example's shop front and its AI preview, or the examples' montage.
-  const videos = ogVideo(p ? ownerId : "home");
+  // The link plays as a short loop in iMessage: an example's shop front and its AI preview, or the mascot's loop.
+  const videos = ogVideo(p ? ownerId : "mascot");
   return { title, description, openGraph: { title, description, siteName: APP_NAME, type: "video.other", videos } };
 }
 
