@@ -61,8 +61,6 @@ Before saying yes, the owner can see the tool at work in a shop like theirs. The
   <img src="docs/assets/preview-salon.gif" width="480" alt="AI-generated preview for a salon: a client books a haircut on her phone at night; next morning the stylist sees the day's schedule on a tablet at the front desk">
 </p>
 
-The salon's prompt: *a client books a haircut on her phone at night; next morning the owner sees the day's schedule on a tablet at the front desk, warm natural light, documentary style, no logos.* Clips are cached per tool and capped at 2 per owner, 10 a day and $20 in total.
-
 ## The market
 
 <a href="docs/assets/market.jpg"><img src="docs/assets/market.jpg" alt="MainStreet AI, an Angie's List for AI tools for Main Street. TAM: every U.S. small business, 36.2M (SBA Office of Advocacy, Feb 2026). SAM: not using AI yet, 29.0M, 80.2% (36.2M x 80.2%, Census BTOS, May 2026). SOM: Maryland first, 559K of 696,710 Maryland small businesses aren't using AI yet; want a person, we hand off to Maryland SBDC, SCORE and SBA Baltimore. 19.8% of U.S. businesses used AI in the past two weeks. 22% of firms not planning to use AI don't know what it can do (Census CES WP 26-25). 50,000+ AI tools on one directory where makers pay to be seen (There's An AI For That, 2026). What we do: reads your business from a website or one line, finds 3 to 5 of 9 jobs (AI phone receptionist, review replies, booking and reminders), works over iMessage, checked by a person, no paid placement, 85 tools approved by a person (261 found, 207 read, 109 scored). Relay.app shut down and deleted all workflows in Aug 2026. Trust score, not star ratings: 75+ out of 100 is Verified, from six checks (who's behind it, age, data handling, public prices, independent reviews, still shipping), each linked to evidence, plus a person's sign-off. Sets it up only on your yes: never enters a card; no yes for that exact tool, no sign-up."></a>
@@ -87,8 +85,6 @@ Only 19.8% of U.S. businesses used AI in the past two weeks (Census BTOS, May 20
 | `imessage/` | Photon relay from iMessage to the API |
 | `scripts/` | `live.sh` (tunnel, deploy, relay) and `prerun_demos.py` |
 | `docs/assets/brand/` | Logo: app icon, wordmarks for light and dark backgrounds, and the banner above (1280 x 640, also the repo's social preview). `node docs/assets/brand/src/render.mjs` rebuilds them from `src/brand.html` |
-
-It grew out of Loopcast, a TinyFish GTM app ([tiny-fish-gtm-automation](https://github.com/IshaanKalra2103/tiny-fish-gtm-automation)).
 
 ## Run it
 
