@@ -6,7 +6,7 @@ import re
 import time
 from pathlib import Path
 
-from . import config, tinyfish
+from . import config, tinyfish, ws
 from .budget import BudgetExceeded, charge, spent
 from .cli import ToolError, log, run
 
@@ -26,6 +26,23 @@ def _save_run(info: dict) -> None:
     d = config.work() / "runs"
     d.mkdir(parents=True, exist_ok=True)
     (d / f"{check_run_id(info['run_id'])}.json").write_text(json.dumps(info, indent=1, default=str))
+
+
+def _load_run(run_id: str) -> dict:
+    """What agent-start noted about the run (its tool, approval and budget); empty for a run started elsewhere."""
+    try:
+        return json.loads((config.work() / "runs" / f"{check_run_id(run_id)}.json").read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def _show_stream(run: dict) -> None:
+    """Put the run's live view on the owner's Setup tab: the tool's setup record, while it runs, gets the stream.
+    Done here rather than by the model, which asked right after agent-start, before TinyFish had a stream."""
+    tool = run.get("tool_id")
+    rec = ws.load("setup", tool) if tool else None
+    if rec and rec.get("status") in ("running", "needs_owner"):
+        ws.save("setup", {**rec, "run_id": run["run_id"], "streaming_url": run["streaming_url"]})
 
 
 def check_approval(aid: str, tool: str) -> None:
@@ -93,15 +110,17 @@ def _main(a: argparse.Namespace) -> dict:
     poll = float(os.environ.get("MS_POLL_SECONDS", "5"))
     deadline = time.time() + (a.timeout if a.cmd == "agent-wait" else 0)
     seen_stream = False
+    noted = _load_run(a.run_id)
     while True:
         try:
-            info = tinyfish.get_run(a.run_id)
+            info = {**noted, **tinyfish.get_run(a.run_id)}
         except Exception as e:
             raise ToolError(f"Could not read run {a.run_id}: {e}")
         if info.get("streaming_url") and not seen_stream:
             seen_stream = True
             _save_run(info)
-            log(f"watch live: {info['streaming_url']}")
+            _show_stream(info)
+            log("watch live: the stream is on the owner's Setup tab")
         out = outcome(info)
         if out != "running" or time.time() >= deadline:
             break

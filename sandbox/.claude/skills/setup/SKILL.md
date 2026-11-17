@@ -40,14 +40,13 @@ cloud-browser runs per approval (sign-up, then verification and configuration).
    "username": ADDR, "password": PW}` and run `ws save setup /work/tmp/setup.json`.
 7. Write the playbook's result schema to `/work/tmp/setup_schema.json`. Note the time (for `inbox wait --since`).
 8. **Run 1, sign-up:** `tf agent-start --url <signup url> --goal "<playbook goal 1>" --tool T --approval AP
-   --schema /work/tmp/setup_schema.json --max-steps 20`. Then `tf agent-status <run_id>` and save its
-   `streaming_url` into the setup record (`ws save setup` again with `run_id` and `streaming_url`) so the
-   owner can press "Watch live". Then `tf agent-wait <run_id>`; if it says `running`, call it again.
+   --schema /work/tmp/setup_schema.json --max-steps 20`. Then `tf agent-wait <run_id>`; if it says `running`,
+   call it again. `tf` puts the live stream on the owner's Setup tab by itself as soon as TinyFish has one.
 9. **Verification email:** `inbox wait <ADDR> --from <playbook sender> --since <time>`. Take `codes[0]`
    or the verification link from `links` (the one on the vendor's domain).
 10. **Run 2, verify and configure:** `tf agent-start` again with playbook goal 2 (it includes the code or
     link, the login, and the configuration from the business website), `--max-steps 40`, same
-    `--tool` and `--approval`. Save the new `run_id`/`streaming_url`, then `tf agent-wait`.
+    `--tool` and `--approval`, then `tf agent-wait` (the new run's stream reaches the page by itself).
 11. Save the outcome with `ws save setup` (keep `password` in the record):
     - `done`: `status: "done"`, `login_url`, `configured` (what was set up, in plain words),
       `next_steps` (2-4 short steps for the owner, such as "Paste the chat code into your website").

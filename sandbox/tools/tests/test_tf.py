@@ -153,3 +153,63 @@ def test_fetch_retries_transient_error(env, monkeypatch, capsys):
     code, out = call(monkeypatch, capsys, fake, "fetch", "https://ok.example")
     assert code == 0 and out["failed"] == [] and out["docs"][0]["url"] == "https://ok.example"
     assert calls["n"] == 2
+
+
+# The owner's Setup tab plays the agent's browser live from the setup record's streaming_url. The model was told to
+# copy the stream there itself right after agent-start, when TinyFish has no stream yet, so it often never landed.
+def running_setup(status="running"):
+    from mstools import ws
+    ws.save("setup", {"tool_id": "chat-a", "status": status, "approval_id": "ap_1", "inbox": "a@b.to",
+                      "username": "a@b.to", "password": "pw-river-12"})
+
+
+def setup_record(env):
+    return json.loads((env["work"] / "setup_chat-a.json").read_text())
+
+
+def test_the_live_stream_lands_in_the_running_setup_record_as_soon_as_it_appears(env, monkeypatch, capsys):
+    monkeypatch.setenv("MS_POLL_SECONDS", "0")
+    approve(env)
+    running_setup()
+    fake = FakeClient(run_status="RUNNING")
+    assert call(monkeypatch, capsys, fake, *START)[0] == 0
+    assert call(monkeypatch, capsys, fake, "agent-status", "run_1")[0] == 0
+    rec = setup_record(env)
+    assert rec["streaming_url"] == "https://stream.example/x" and rec["run_id"] == "run_1"
+    assert rec["status"] == "running" and rec["password"] == "pw-river-12" and rec["username"] == "a@b.to"
+    # The run file still knows its tool, so later polls of the same run find the record too.
+    assert json.loads((env["work"] / "runs" / "run_1.json").read_text())["tool_id"] == "chat-a"
+
+
+def test_a_finished_setup_record_is_left_alone(env, monkeypatch, capsys):
+    monkeypatch.setenv("MS_POLL_SECONDS", "0")
+    approve(env)
+    running_setup()
+    fake = FakeClient(run_status="RUNNING")
+    call(monkeypatch, capsys, fake, *START)
+    from mstools import ws
+    ws.save("setup", {**setup_record(env), "status": "done"})
+    call(monkeypatch, capsys, fake, "agent-wait", "run_1", "--timeout", "0")
+    assert setup_record(env).get("streaming_url") is None
+
+
+def test_no_setup_record_is_made_up_for_a_run(env, monkeypatch, capsys):
+    monkeypatch.setenv("MS_POLL_SECONDS", "0")
+    approve(env)
+    fake = FakeClient(run_status="RUNNING")
+    call(monkeypatch, capsys, fake, *START)
+    call(monkeypatch, capsys, fake, "agent-status", "run_1")
+    assert not (env["work"] / "setup_chat-a.json").exists()
+
+
+def test_the_stream_address_stays_out_of_the_log(env, monkeypatch, capsys):
+    """A live view URL lets anyone watch (and click in) the session; the log only says where it went."""
+    monkeypatch.setenv("MS_POLL_SECONDS", "0")
+    approve(env)
+    running_setup()
+    fake = FakeClient(run_status="RUNNING")
+    call(monkeypatch, capsys, fake, *START)
+    monkeypatch.setattr(sys, "argv", ["tf", "agent-status", "run_1"])
+    with pytest.raises(SystemExit):
+        tf.main()
+    assert "stream.example" not in capsys.readouterr().err
