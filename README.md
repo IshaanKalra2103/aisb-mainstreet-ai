@@ -35,7 +35,7 @@ Built for the UMD AI for Small Business Hack-a-thon, Fall 2026.
 | `imessage/` | Photon relay from iMessage to the API |
 | `scripts/` | `live.sh` (tunnel, deploy, relay) and `prerun_demos.py` |
 
-This is branch `aisb`. Loopcast, the TinyFish GTM app it grew from, is on `main`.
+It grew out of Loopcast, a TinyFish GTM app ([tiny-fish-gtm-automation](https://github.com/IshaanKalra2103/tiny-fish-gtm-automation)).
 
 ## Run it
 
