@@ -121,9 +121,13 @@ export async function decide(
 
 /** "Text me": the line adds this number and texts it first (tied to `ownerId`'s shop when given). Throws an
  * ApiError with a sentence written for the visitor (number taken, out of spots, try again). */
-export async function addPhone(form: { first_name: string; email: string; phone: string; owner_id?: string }): Promise<void> {
+/** `welcome: false` (the iMessage onboarding): the number goes on the list but the line does not text first. */
+export async function addPhone(form: { first_name: string; email?: string; phone: string; owner_id?: string; welcome?: boolean }): Promise<void> {
   const { status, json } = await post<{ detail?: unknown }>("/api/phone", form);
-  if (status === 422) throw new ApiError("Check the number and email. We text US mobile numbers only.", status);
+  if (status === 422) {
+    const d = json?.detail;
+    throw new ApiError(typeof d === "string" ? d : form.email ? "Check the number and email. We text US mobile numbers only." : "Check the number. We text US mobile numbers only.", status);
+  }
   if (status >= 400) throw apiError(status, json, "That did not go through. Please try again in a minute.");
 }
 

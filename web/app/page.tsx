@@ -4,7 +4,7 @@ import Marquee from "@/components/Marquee";
 import { ObIcon } from "@/components/obIcons";
 import ShopTile from "@/components/ShopTile";
 import { DEMO_BUSINESSES } from "@/data/demo";
-import { IMESSAGE_DISPLAY, SITE_DRAFT, smsHref } from "@/lib/brand";
+import { IMESSAGE_DISPLAY } from "@/lib/brand";
 
 export default function Home() {
   return (
@@ -23,9 +23,9 @@ export default function Home() {
             {/* Two doors: try it on the web (the site box and the what-you-sell tiles are on /start), or text the same agent. */}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/start" className="btn btn-primary ob-cta">Try it with your shop</Link>
-              <a href={smsHref(SITE_DRAFT)} title={`iMessage ${IMESSAGE_DISPLAY}`} className="btn btn-secondary ob-cta">
+              <Link href="/text" title={`iMessage ${IMESSAGE_DISPLAY}`} className="btn btn-secondary ob-cta">
                 <ObIcon name="message" size={22} />Text our iMessage agent
-              </a>
+              </Link>
             </div>
           </div>
           <div className="hidden lg:block"><HeroPhone /></div>

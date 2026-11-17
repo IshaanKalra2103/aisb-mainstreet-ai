@@ -24,14 +24,13 @@ test("demo flow", async ({ page }) => {
 test("the home page has two doors: Try it with your shop goes to /start, which asks for a site or what you sell", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByLabel(/Paste your website/)).toHaveCount(0);
-  // Messages opens with the first text drafted, waiting for the shop's website.
-  await expect(page.getByRole("link", { name: "Text our iMessage agent" }))
-    .toHaveAttribute("href", `sms:+14152250168?&body=${encodeURIComponent("Hi! My shop's website is ")}`);
+  // The iMessage door goes through /text first: our line only answers numbers on its list.
+  await expect(page.getByRole("link", { name: "Text our iMessage agent" })).toHaveAttribute("href", "/text");
   await page.getByRole("link", { name: "Try it with your shop" }).click();
   await expect(page).toHaveURL(/\/start$/);
   await expect(page.getByLabel(/Paste your website/)).toBeVisible();
   await expect(page.getByRole("radio", { name: "Salon" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Text us at/ })).toHaveAttribute("href", /body=Hi!%20My%20shop/);
+  await expect(page.getByRole("link", { name: /Text us at/ })).toHaveAttribute("href", "/text");
   await expect(page.getByRole("button", { name: "Next" })).toHaveCount(0);
   await page.getByRole("radio", { name: "Salon" }).click();
   await expect(page.getByRole("button", { name: "Next" })).toBeVisible();
@@ -220,4 +219,47 @@ test("profile shows facts with sources", async ({ page }) => {
   await expect(facts.first()).toBeVisible();
   const n = await facts.count();
   for (let i = 0; i < n; i++) await expect(facts.nth(i)).toHaveAttribute("href", /^https?:\/\//);
+});
+
+
+test("the iMessage onboarding adds the number with no welcome, then opens Messages with the first text written", async ({ page }) => {
+  const sent: unknown[] = [];
+  await page.route(`${API}/api/phone`, async (route) => {
+    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers: CORS });
+    sent.push(route.request().postDataJSON());
+    await new Promise((ok) => setTimeout(ok, 400));
+    return route.fulfill({ status: 200, headers: CORS, contentType: "application/json", body: JSON.stringify({ ok: true, line: "+1 (415) 225-0168" }) });
+  });
+  await page.goto("/text");
+  await page.getByRole("button", { name: "Add my number" }).click();
+  await expect(page.getByTestId("onboard").getByRole("alert")).toContainText("Add your website, or pick what you sell.");
+  await page.getByLabel("First name").fill("Priya Shah");
+  await page.getByLabel("Mobile number").fill("(240) 555-0142");
+  await page.getByRole("radio", { name: "Coffee" }).click();
+  await page.getByLabel("Where is it? (optional)").fill("Hyattsville, MD");
+  await page.getByRole("button", { name: "Add my number" }).click();
+  await expect(page.getByTestId("onboard-adding")).toBeVisible();
+  await expect(page.getByTestId("onboard-ready")).toBeVisible({ timeout: 8000 });
+  expect(sent).toEqual([{ first_name: "Priya Shah", phone: "(240) 555-0142", welcome: false }]);
+  const draft = "Hi! I'm Priya. I run a coffee shop in Hyattsville, MD.";
+  await expect(page.getByTestId("onboard-draft")).toHaveText(draft);
+  await expect(page.getByTestId("onboard-open")).toHaveAttribute("href", `sms:+14152250168?&body=${encodeURIComponent(draft)}`);
+});
+
+test("the onboarding with a website drafts it and shows the API's plain error", async ({ page }) => {
+  let n = 0;
+  await page.route(`${API}/api/phone`, async (route) => {
+    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers: CORS });
+    n += 1;
+    if (n === 1) return route.fulfill({ status: 409, headers: CORS, contentType: "application/json", body: JSON.stringify({ detail: "That number can't get texts from our line. Try another mobile number." }) });
+    return route.fulfill({ status: 200, headers: CORS, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+  });
+  await page.goto("/text");
+  await page.getByLabel("First name").fill("Sam");
+  await page.getByLabel("Mobile number").fill("2405550143");
+  await page.getByLabel("Your shop's website").fill("https://vigilantecoffee.com/");
+  await page.getByRole("button", { name: "Add my number" }).click();
+  await expect(page.getByTestId("onboard").getByRole("alert")).toContainText("can't get texts from our line");
+  await page.getByRole("button", { name: "Add my number" }).click();
+  await expect(page.getByTestId("onboard-draft")).toHaveText("Hi! I'm Sam. My shop's website is vigilantecoffee.com");
 });

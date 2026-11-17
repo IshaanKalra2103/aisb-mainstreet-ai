@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import MascotLogo from "./MascotLogo";
 
 /**
  * The first texts, playing in dark Messages (Poke's phone above the fold, Clerk's scripted chat). The script runs once on
@@ -108,7 +109,7 @@ export default function HeroPhone() {
         <div className="ob-screen">
           <div className="ob-island" />
           <div className="ob-imhead">
-            <img src="/brand/mark.jpg" alt="" />
+            <span className="ob-imav"><MascotLogo size={30} play="idle" wordmark={false} /></span>
             <span>MainStreet AI &rsaquo;</span>
           </div>
           <div className="ob-thread" ref={thread}>

@@ -67,6 +67,7 @@ cd imessage && RELAY_TEST_API_URL=http://127.0.0.1:8788 RELAY_TEST_SECRET=test n
 - `AGENT_API_URL`: the agent API. The default is `http://127.0.0.1:8787`.
 - `MS_RELAY_SECRET`: must match the API's `MS_RELAY_SECRET`. If it doesn't, the API answers 401 and owners get the sorry text.
 - `RELAY_NATIVE_LOCATION=0`: turns the native location request off, so the relay sends the share page card again.
+- `RELAY_CHAT_BACKGROUND=0`: turns the chat wallpaper off. Otherwise each thread gets `assets/chat-background.jpg` the first time it texts, unless it already has a background.
 - `RELAY_PUSH=0`: turns texting first off (no outbox polling).
 - `AGENT_DIRECT_URL`: an address of the API that cannot start the agent VM (on GCP its internal address, `http://<ip>:8787`, from the `agent-direct-url` metadata). When set, the outbox is polled there all the time, with a 5 s timeout, so a number added on the website is texted even when nobody has texted lately. Texts still go to `AGENT_API_URL`.
 - `RELAY_PUSH_WINDOW_MS` (default 1800000, 30 min) and `RELAY_PUSH_INTERVAL_MS` (default 3000): how long after a phone's last text the relay keeps polling the outbox, and how often.

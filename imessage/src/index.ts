@@ -6,7 +6,7 @@
 // Only one consumer may read the Photon line. Stop any other (e.g. the old gtm-paperclip
 // container) first, or both will reply.
 // Docs: https://photon.codes/docs/spectrum-ts
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Spectrum, app as appCard, attachment, poll, richlink } from "spectrum-ts";
@@ -15,6 +15,7 @@ import {
   handleMessage, hashSender, Outbox, PUSH_INTERVAL_MS, PUSH_WINDOW_MS, relayable, type RelayDeps, timeoutFromEnv, votable,
 } from "./relay.ts";
 import { locationKit } from "./location.ts";
+import { chatBackground } from "./background.ts";
 
 const apiUrl = process.env.AGENT_API_URL || "http://127.0.0.1:8787";
 const secret = process.env.MS_RELAY_SECRET || undefined;
@@ -47,7 +48,14 @@ process.on("SIGINT", () => void shutdown("SIGINT"));
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
 // Native "share your location" card in place of the share page card. RELAY_NATIVE_LOCATION=0 turns it off.
-const location = process.env.RELAY_NATIVE_LOCATION === "0" ? null : locationKit(projectId, projectSecret);
+const line = locationKit(projectId, projectSecret);
+const location = process.env.RELAY_NATIVE_LOCATION === "0" ? null : line;
+
+// The MainStreet AI chat wallpaper (assets/chat-background.jpg) on each thread the first time it texts, unless the
+// thread already has one. RELAY_CHAT_BACKGROUND=0 turns it off.
+const background = process.env.RELAY_CHAT_BACKGROUND === "0" ? null
+  : await readFile(new URL("../assets/chat-background.jpg", import.meta.url))
+    .then((b) => chatBackground(line.line, new Uint8Array(b)), () => null);
 
 // Texting first (website yes, finished setups): the thread of each phone that texted since start, by sender hash.
 // Lost on restart until that phone texts again. RELAY_PUSH=0 turns it off; RELAY_PUSH_WINDOW_MS is how long after a
@@ -74,7 +82,7 @@ const outbox = process.env.RELAY_PUSH === "0" ? null : new Outbox({
 });
 if (outbox) void outbox.run();
 
-console.log(`[relay] listening, agent API ${apiUrl}, native location ${location ? "on" : "off"}, push ${outbox ? (directUrl ? "on (direct, always)" : "on") : "off"}`);
+console.log(`[relay] listening, agent API ${apiUrl}, native location ${location ? "on" : "off"}, chat background ${background ? "on" : "off"}, push ${outbox ? (directUrl ? "on (direct, always)" : "on") : "off"}`);
 
 // Each message is handled on its own so a slow turn (up to ~280 s) never blocks other senders.
 for await (const [space, message] of app.messages) {
@@ -83,6 +91,7 @@ for await (const [space, message] of app.messages) {
   if (who) {
     threads.set(hashSender(who), deps);
     outbox?.touch();
+    if (background) void background(space.id);
   }
   // Only this message's handler may react to it; the thread's stored deps (pushes) never do.
   void handleMessage(message, { ...deps, react: (emoji: string) => message.react(emoji) })

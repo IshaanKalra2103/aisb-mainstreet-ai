@@ -143,3 +143,43 @@ async def test_the_number_leaves_memory_after_welcome_ttl(make_client, monkeypat
     monkeypatch.setattr(im, "WELCOME_TTL", 0.0)
     app.state.imessage._trim(time.time())
     assert all("to" not in e for e in app.state.imessage.outbox)
+
+
+ONBOARD = {"first_name": "Dana", "phone": "(240) 555-0142", "welcome": False}
+
+
+async def test_the_imessage_onboarding_adds_the_number_without_a_welcome(make_client, settings):
+    settings.inbox_base = "shopbot@agentmail.to"
+    photon = FakePhoton()
+    app, c = make_client(photon=photon)
+    r = await c.post("/api/phone", json=ONBOARD)
+    assert r.status_code == 200 and r.json() == {"ok": True, "line": "+1 (415) 225-0168"}
+    # no email asked: Photon gets a plus-address of our own inbox, never the number
+    assert photon.calls == [(NUM, "Dana", "", f"shopbot+text-{H[:8]}@agentmail.to")]
+    assert NUM not in photon.calls[0][3]
+    assert (await outbox_all(c))["entries"] == []  # the owner texts first, so the line sends nothing
+    assert json.loads((settings.workspaces / "_invites.json").read_text()) == {"added": [H]}
+
+
+async def test_the_onboarding_lets_a_phone_that_already_texts_straight_through(make_client, settings):
+    settings.inbox_base = "shopbot@agentmail.to"
+    photon = FakePhoton()
+    app, c = make_client(photon=photon)
+    app.state.ws.link_phone(H, shop(app))
+    r = await c.post("/api/phone", json=ONBOARD)
+    assert r.status_code == 200 and photon.calls == [] and (await outbox_all(c))["entries"] == []
+
+
+async def test_no_email_and_no_inbox_asks_for_one(make_client, settings):
+    settings.inbox_base = None
+    photon = FakePhoton()
+    app, c = make_client(photon=photon)
+    r = await c.post("/api/phone", json=ONBOARD)
+    assert r.status_code == 422 and photon.calls == []
+
+
+async def test_the_old_form_still_welcomes(make_client, settings):
+    settings.inbox_base = "shopbot@agentmail.to"
+    app, c = make_client(photon=FakePhoton())
+    assert (await c.post("/api/phone", json={**FORM, "welcome": True})).status_code == 200
+    assert len((await outbox_all(c))["entries"]) == 1

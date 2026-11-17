@@ -38,3 +38,6 @@ class Settings:
     phone_adds_cap: int = int(os.environ.get("MS_PHONE_ADDS_CAP", "9"))
     phone_adds_per_ip_day: int = int(os.environ.get("MS_PHONE_ADDS_PER_IP_DAY", "3"))
     phone_tries_per_ip_day: int = 8
+    # The AgentMail inbox sign-ups use (name@agentmail.to). Photon wants an email with every number; when the
+    # iMessage onboarding asks for none, the number gets a plus-address of this inbox (name+text-<hash>@...).
+    inbox_base: str | None = os.environ.get("MS_INBOX_BASE") or None

@@ -6,7 +6,7 @@ import OfflineBanner from "./OfflineBanner";
 import { ObIcon, type IconName } from "./obIcons";
 
 /** No website: what the shop sells, as tiles, so the owner taps instead of types. Each becomes the sentence the agent reads. */
-const KINDS: { id: string; label: string; icon: IconName; says: string }[] = [
+export const KINDS: { id: string; label: string; icon: IconName; says: string }[] = [
   { id: "coffee", label: "Coffee", icon: "coffee", says: "a coffee shop" },
   { id: "salon", label: "Salon", icon: "scissors", says: "a hair salon" },
   { id: "diner", label: "Diner", icon: "kitchen", says: "a diner" },

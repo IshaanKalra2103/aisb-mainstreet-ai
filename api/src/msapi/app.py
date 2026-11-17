@@ -48,9 +48,12 @@ class IMessageIn(BaseModel):
 class PhoneIn(BaseModel):
     first_name: str = Field(min_length=1, max_length=40)
     last_name: str = Field("", max_length=40)
-    email: str = Field(max_length=200, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+    email: str = Field("", max_length=200, pattern=r"^$|^[^\s@]+@[^\s@]+\.[^\s@]+$")
     phone: str = Field(min_length=7, max_length=30)
     owner_id: str | None = Field(None, max_length=40)
+    # False for the website's iMessage onboarding: the owner sends the first text from Messages, so the line
+    # sends no welcome of its own.
+    welcome: bool = True
 
 
 def us_mobile(raw: str) -> str | None:
@@ -267,14 +270,23 @@ def create_app(runner: Runner | None = None, settings: Settings | None = None,
         # A phone that already texts with us keeps its shop: the form proves nothing about who holds the number.
         # Switching shops goes through a text from that phone (the shop code), as before.
         if ws.phone_owner(h):
+            if not body.welcome and not body.owner_id:
+                return {"ok": True, "line": LINE}  # onboarding: it is already on the list, so they just text
             raise HTTPException(409, f"That number already texts with us. Text {LINE} from it.")
+        email = body.email.strip()
+        if not email:
+            base = s.inbox_base or ""
+            if "@" not in base:
+                raise HTTPException(422, "Add your email so we can add your number.")
+            local, domain = base.split("@", 1)
+            email = f"{local.split('+')[0]}+text-{h[:8]}@{domain}"
         async with phone_lock:  # one add at a time, so the cap holds
             p = ws.root / "_invites.json"
             added: list[str] = (_read(p) or {}).get("added", [])
             if h not in added and len(added) >= s.phone_adds_cap:
                 raise HTTPException(429, "We're out of spots for new numbers right now.")
             try:
-                new = await photon.allow(e164, body.first_name.strip(), body.last_name.strip(), body.email.strip())
+                new = await photon.allow(e164, body.first_name.strip(), body.last_name.strip(), email)
             except PhotonError as e:
                 log.warning("phone add failed: %s", e.kind)
                 if e.kind == "full":
@@ -289,7 +301,8 @@ def create_app(runner: Runner | None = None, settings: Settings | None = None,
         phones_today["adds"][ip] = phones_today["adds"].get(ip, 0) + 1
         if body.owner_id:
             ws.link_phone(h, body.owner_id)
-        app.state.imessage.welcome(h, e164, body.owner_id, body.first_name)
+        if body.welcome:
+            app.state.imessage.welcome(h, e164, body.owner_id, body.first_name)
         log.info("phone added: new=%s shop=%s", new, bool(body.owner_id))
         return {"ok": True, "line": LINE}
 

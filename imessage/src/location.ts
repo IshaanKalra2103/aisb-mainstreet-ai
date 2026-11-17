@@ -69,6 +69,9 @@ export function locationKit(projectId: string, projectSecret: string, opts: Opti
   }
 
   return {
+    /** The project's low-level line client (also used for the chat background). */
+    line: lineClient,
+
     /** Send the Find My request card in the DM `chat` (the Spectrum space id) to `who`. */
     async request(chat: string, who: string): Promise<"sent" | "pending" | "failed"> {
       if ((pending.get(who) ?? 0) > now()) return "pending";

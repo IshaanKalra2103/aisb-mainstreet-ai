@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Intake from "@/components/Intake";
-import TextMe from "@/components/TextMe";
-import { IMESSAGE_DISPLAY, SITE_DRAFT, smsHref } from "@/lib/brand";
+import Link from "next/link";
+import { IMESSAGE_DISPLAY } from "@/lib/brand";
 
 export const metadata: Metadata = { title: "Try it with your shop" };
 
@@ -16,9 +16,7 @@ export default function StartPage() {
       <p className="mt-4 text-xl text-soft">We read your website and pick the jobs AI can take off your plate. No website? Pick what you sell.</p>
       <Intake />
       <div className="mt-12 border-t border-line pt-6">
-        <p className="text-lg text-soft">Rather text? <a href={smsHref(SITE_DRAFT)} className="font-semibold">Text us at {IMESSAGE_DISPLAY}</a> on iMessage.</p>
-        {/* aa's "Text me" form, folded to a link until the owner asks for it. */}
-        <TextMe start="button" />
+        <p className="text-lg text-soft">Rather text? <Link href="/text" className="font-semibold">Text us at {IMESSAGE_DISPLAY}</Link> on iMessage.</p>
       </div>
     </section>
   );
