@@ -33,6 +33,7 @@ class ToolSetup(BaseModel):
     difficulty: Literal["easy", "medium", "hard"]
     agent_setup: bool = False
     playbook: str | None = None
+    flow: str | None = None  # recorded sign-up in mstools/flows, replayed by `bu setup` in a Browser Use browser
 
 
 class Signal(BaseModel):
@@ -125,6 +126,7 @@ class Preview(BaseModel):
     status: Literal["completed", "failed", "capped"]
     video_file: str | None = None
     cost_usd: float = 0.0
+    kind: Literal["plain", "site"] = "plain"  # site: made from a rebuild of the shop's own homepage
 
 
 class SetupRecord(BaseModel):
@@ -138,6 +140,7 @@ class SetupRecord(BaseModel):
     username: str | None = None
     password: str | None = None
     configured: list[str] = []
+    links: dict[str, str] = {}  # public pages made: booking_page, chat_page
     next_steps: list[str] = []
     handoff_reason: str | None = None
 
@@ -145,6 +148,7 @@ class SetupRecord(BaseModel):
 class Approval(BaseModel):
     id: ApprovalId
     tool_id: ToolId
+    tool_ids: list[ToolId] = []
     summary: str
     status: Literal["pending", "approved", "rejected"] = "pending"
     created_at: str

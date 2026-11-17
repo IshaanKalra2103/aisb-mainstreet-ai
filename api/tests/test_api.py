@@ -93,10 +93,11 @@ async def test_bundle_hides_password_and_reveal_once(make_client, settings):
     app, c = make_client()
     oid = await new_owner(c)
     p = Workspaces(settings.workspaces).owner_dir(oid) / "setup_chat-a.json"
-    p.write_text(json.dumps({"tool_id": "chat-a", "status": "done", "username": "u", "password": "s3cret-pw", "configured": [], "next_steps": []}))
+    p.write_text(json.dumps({"tool_id": "chat-a", "status": "done", "username": "u", "inbox": "agent@inbox.test", "password": "s3cret-pw", "configured": [], "next_steps": []}))
     r = await c.get(f"/api/owners/{oid}")
     assert "s3cret-pw" not in r.text
     assert r.json()["setups"]["chat-a"]["has_password"] is True
+    assert "username" not in r.json()["setups"]["chat-a"] and "inbox" not in r.json()["setups"]["chat-a"]
     first = await c.get(f"/api/owners/{oid}/password/chat-a")
     assert first.status_code == 200 and first.json()["password"] == "s3cret-pw"
     second = await c.get(f"/api/owners/{oid}/password/chat-a")
@@ -157,6 +158,15 @@ def test_docker_runner_command(settings, monkeypatch):
     assert "claude-sonnet-5-5" in cmd and "stream-json" in cmd
     assert r.command("o_1234567890", "hello", "sid-1", resume=True)[r.command("o_1234567890", "hello", "sid-1", resume=True).index("--resume") + 1] == "sid-1"
     assert r.env()["CLAUDE_CODE_OAUTH_TOKEN"] == "sk-ant-oat01-abcdef"
+
+
+def test_docker_runner_allows_parallel_setup_helpers(settings):
+    cmd = DockerRunner(settings).command("o_1234567890", "hello", "sid-1", resume=False)
+    allowed = cmd[cmd.index("--allowedTools") + 1].split(",")
+    assert "Agent" in allowed and "Bash(bu:*)" in allowed
+    assert cmd[cmd.index("--memory") + 1] == "2g"
+    i = cmd.index("BROWSER_USE_API_KEY")
+    assert cmd[i - 1] == "-e"  # by name only: the value never shows up in `ps`
 
 
 async def test_imessage_requires_relay_secret_when_set(make_client, settings):
@@ -468,6 +478,22 @@ async def test_imessage_vote_yes_approves_and_runs_the_turn(make_client, setting
     assert json.loads((ws.decisions_dir(oid) / "ap_1.json").read_text())["status"] == "approved"
 
 
+async def test_imessage_vote_yes_sends_the_watch_link_while_the_setup_runs(make_client, settings):
+    (settings.root / "sandbox").mkdir()
+    (settings.root / "sandbox" / "catalog.json").write_text(json.dumps({"tools": [
+        {"id": "chat-a", "name": "Chatling"}, {"id": "rzrv", "name": "RZRV"}]}))
+    app, c = make_client(FakeRunner(script(reply="Done."), delay=0.5))
+    app.state.imessage.wait_s = 0.05
+    oid = app.state.ws.owner_for_phone(HASH)
+    write_approval(settings, oid)
+    f = Workspaces(settings.workspaces).owner_dir(oid) / "approvals" / "ap_1.json"
+    f.write_text(json.dumps({**json.loads(f.read_text()), "tool_ids": ["chat-a", "rzrv"]}))
+    body = (await c.post("/api/imessage/vote", json={"from_hash": HASH, "poll": "Set up Chatling for you?", "option": YES})).json()
+    assert body["replies"][0] == "Setting up Chatling and RZRV now."
+    assert body["links"] == [f"{settings.web_url}/b/{oid}#setup"]  # the page opens on its Setup tab with the live view
+    assert not any("@" in r for r in body["replies"])
+
+
 async def test_imessage_vote_not_now_rejects(make_client, settings):
     runner = FakeRunner(script())
     app, c = make_client(runner)
@@ -519,3 +545,21 @@ def test_split_texts_allows_five_short_bubbles():
     from msapi.imessage import split_texts
     parts, _ = split_texts("a\n\nb\n\nc\n\nd\n\ne\n\nf", "L")
     assert parts == ["a", "b", "c", "d", "e\n\nf"]
+
+
+async def test_background_helpers_finishing_later_all_reach_the_owner(make_client):
+    # The setup skill runs setup-helpers in the background: claude -p then emits one result per wake-up.
+    events = script(reply="tapback: like\nI started setting up RZRV and Picktime.") + [
+        {"type": "result", "subtype": "success", "is_error": False, "result": "RZRV is set up: https://rzrv.ai/x"},
+        {"type": "result", "subtype": "success", "is_error": False, "result": "Picktime stopped partway."},
+    ]
+    app, c = make_client(FakeRunner(events))
+    oid = await new_owner(c)
+    tid = (await c.post(f"/api/owners/{oid}/turns", json={"text": "Owner approved approval ap_1"})).json()["turn_id"]
+    evs = await sse_events(c, tid)
+    done = [e for e in evs if e["type"] == "done"]
+    assert len(done) == 1 and done[0]["tapback"] == "like"
+    assert done[0]["reply"] == ("I started setting up RZRV and Picktime.\n\nRZRV is set up: https://rzrv.ai/x\n\n"
+                                "Picktime stopped partway.")
+    bundle = (await c.get(f"/api/owners/{oid}")).json()
+    assert bundle["messages"][-1]["text"].endswith("Picktime stopped partway.")

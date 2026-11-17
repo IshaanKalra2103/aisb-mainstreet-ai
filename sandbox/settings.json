@@ -11,6 +11,8 @@
       "Read(//sandbox/**)",
       "Write(//work/**)",
       "Edit(//work/**)",
+      "Bash(bu:*)",
+      "Agent",
       "Skill"
     ],
     "deny": [

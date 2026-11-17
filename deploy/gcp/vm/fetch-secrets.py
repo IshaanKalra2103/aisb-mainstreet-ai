@@ -31,7 +31,7 @@ PROFILES = {
         "optional_metadata": {"MS_INBOX_BASE": "ms-inbox-base"},
         # Set when present: the Photon dashboard session behind the website's "Text me" (POST /api/phone).
         # A whole-account login: delete the secret after the finals (gcloud secrets delete photon-session).
-        "optional_secrets": {"PHOTON_SESSION": "photon-session"},
+        "optional_secrets": {"PHOTON_SESSION": "photon-session", "BROWSER_USE_API_KEY": "browser-use-api-key"},
         "fixed": {},
     },
     "relay": {

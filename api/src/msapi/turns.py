@@ -212,16 +212,22 @@ class TurnManager:
                     self._emit(turn, {"type": "status", "text": "Starting your assistant"})
                     sid, resume = self.ws.session(oid)
                     prompt = f"[channel={turn.channel} owner={oid} link={self.s.web_url}/b/{oid}]\n{text}"
-                    tr, terminal = Translator(), None
+                    tr, terminal, done = Translator(), None, []
                     async for raw in self.runner.run(oid, prompt, sid, resume):
                         self._raw(turn, raw)
                         if raw.get("type") == "result":
                             self.ws.mark_started(oid)
                         for ui in tr(raw):
-                            if ui["type"] in ("done", "error"):
+                            if ui["type"] == "done":
+                                done.append(ui)
+                            elif ui["type"] == "error":
                                 terminal = terminal or ui
                             else:
                                 self._emit(turn, ui)
+                    # Background subagents (the setup helpers) wake the agent again when they finish, and each
+                    # wake-up ends with its own result: the owner gets all of them, in order, as one reply.
+                    if done:
+                        terminal = {**done[0], "reply": "\n\n".join(d["reply"] for d in done if d["reply"])}
                     terminal = terminal or {"type": "error", "message": FAILED, "detail": "no result event"}
                     if terminal["type"] == "done":
                         self.ws.add_message(oid, "agent", terminal["reply"], turn.channel)

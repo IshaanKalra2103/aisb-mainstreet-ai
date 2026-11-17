@@ -10,9 +10,11 @@ from typing import AsyncIterator, Protocol
 
 from .settings import Settings
 
-ALLOWED_TOOLS = "Bash(ws:*),Bash(catalog:*),Bash(tf:*),Bash(inbox:*),Bash(preview:*),Bash(approval:*),Read,Write,Edit,Skill"
+# Agent: the setup skill runs one setup-helper per approved tool in parallel; the preview skill runs site-demo.
+ALLOWED_TOOLS = ("Bash(ws:*),Bash(catalog:*),Bash(tf:*),Bash(bu:*),Bash(inbox:*),Bash(preview:*),Bash(approval:*),"
+                 "Read,Write,Edit,Skill,Agent")
 DISALLOWED_TOOLS = "WebFetch,WebSearch"
-PASS_ENV = ("TINYFISH_API_KEY", "OPENROUTER_API_KEY", "AGENTMAIL_API_KEY", "MS_INBOX_BASE")
+PASS_ENV = ("TINYFISH_API_KEY", "OPENROUTER_API_KEY", "AGENTMAIL_API_KEY", "MS_INBOX_BASE", "BROWSER_USE_API_KEY")
 
 
 def clean_token(raw: str | None) -> str:
@@ -67,7 +69,7 @@ class DockerRunner:
         env = ["-e", cred, "-e", "CLAUDE_CONFIG_DIR=/work/.claude-config",
                "-e", f"MS_OWNER_ID={owner_id}", *[x for k in PASS_ENV for x in ("-e", k)]]
         return ["docker", "run", "--rm", "--name", self.name(owner_id), "--label", "mainstreet=1",
-                "--memory", "1g", "--cpus", "1.5", "--pids-limit", "256",
+                "--memory", "2g", "--cpus", "1.5", "--pids-limit", "256",
                 "-v", f"{work}:/work", "-v", f"{self.s.workspaces / '_decisions' / owner_id}:/decisions:ro",
                 "-v", f"{self.s.budget}:/budget", *env, self.s.image,
                 "claude", "-p", prompt, "--resume" if resume else "--session-id", session_id,

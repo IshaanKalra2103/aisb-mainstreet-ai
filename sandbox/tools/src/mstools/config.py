@@ -4,7 +4,7 @@ from pathlib import Path
 
 APP_NAME = "MainStreet AI"
 
-CAPS = {"tinyfish_owner": 1.50, "setup": 1.00, "video_global": 20.00}
+CAPS = {"tinyfish_owner": 1.50, "setup": 1.00, "video_global": 20.00, "browser_owner": 1.00}
 AGENT_USD_PER_STEP = 0.016
 SETUP_MAX_STEPS = 60
 

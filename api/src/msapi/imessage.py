@@ -105,6 +105,11 @@ class IMessage:
         except (OSError, ValueError, AttributeError, TypeError):
             return tool_id
 
+    def _tool_names(self, ap: dict) -> str:
+        """Every tool an approval covers, by catalog name: "Chatling", "Chatling and RZRV", "A, B and C"."""
+        names = [self._tool_name(t) for t in (ap.get("tool_ids") or [ap.get("tool_id", "")])]
+        return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
     def _question(self, ap: dict) -> str:
         return f"Set up {self._tool_name(ap.get('tool_id', ''))} for you?"
 
@@ -206,9 +211,12 @@ class IMessage:
             tid = self.turns.start(oid, f"Owner approved approval {ap['id']}", "imessage", log_text=f"Approved: {ap['summary']}")
         except LimitReached as e:
             raise RateLimited(str(e))
-        return await self._reply(oid, tid, t0)
+        # A setup outlasts the wait: answer at once with the page's Setup tab, which shows the view-only live browser.
+        watch = {"replies": [f"Setting up {self._tool_names(ap)} now.", "You can watch it live here:"],
+                 "link": "", "links": [f"{link}#setup"], "video_url": None, "poll": None, "tapback": None}
+        return await self._reply(oid, tid, t0, busy=watch)
 
-    async def _reply(self, oid: str, tid: str, t0: float, text: str = "") -> dict:
+    async def _reply(self, oid: str, tid: str, t0: float, text: str = "", busy: dict | None = None) -> dict:
         ev = await self.turns.wait(tid, self.wait_s)
         if ev is None:
             turn = self.turns.get(tid)
@@ -216,7 +224,7 @@ class IMessage:
                 ev = turn.events[-1]
             else:
                 self.follow.add(tid)  # no await since the check: its listener has not run yet
-                return self._busy(text)
+                return busy or self._busy(text)
         return self._payload(oid, ev, t0)
 
     @staticmethod
@@ -350,7 +358,7 @@ class IMessage:
         that starts no turn. Never raises: the page's decision must not fail over a text."""
         try:
             if decision == "approve":
-                text = (f"Got your yes on the website. Setting up {self._tool_name(ap.get('tool_id', ''))} now. "
+                text = (f"Got your yes on the website. Setting up {self._tool_names(ap)} now. "
                         "I'll text you when it's done, or if I need you for a step.")
             elif reply:
                 text = reply

@@ -45,8 +45,9 @@ def _show_stream(run: dict) -> None:
         ws.save("setup", {**rec, "run_id": run["run_id"], "streaming_url": run["streaming_url"]})
 
 
-def check_approval(aid: str, tool: str) -> None:
-    """The owner's yes is the gate for any account creation (spec §5.5), so it is enforced here, not in the prompt."""
+def check_approval(aid: str, tool: str, provider: str = "tf") -> None:
+    """The owner's yes is the gate for any account creation (spec §5.5), so it is enforced here, not in the prompt.
+    One approval may cover several tools (`tool_ids`); runs are counted per tool and per provider (bu, tf)."""
     if not re.fullmatch(r"ap_[A-Za-z0-9]+", aid or ""):
         raise ToolError(f"'{aid}' is not an approval id. Ask the owner first with `approval request --tool {tool} --summary ...`.")
     path = config.decisions() / f"{aid}.json"  # read-only mount: the agent cannot write a yes for itself
@@ -55,12 +56,16 @@ def check_approval(aid: str, tool: str) -> None:
             raise ToolError(f"Approval {aid} is not approved yet. Do not start a setup; end your turn and wait for the owner.")
         raise ToolError(f"No approval {aid}. Ask the owner first with `approval request --tool {tool} --summary ...`.")
     ap = json.loads(path.read_text())
-    if ap.get("tool_id") != tool:
-        raise ToolError(f"Approval {aid} is for {ap.get('tool_id')}, not {tool}. Ask the owner about {tool} with `approval request`.")
+    tools = ap.get("tool_ids") or [ap.get("tool_id")]
+    if tool not in tools:
+        raise ToolError(f"Approval {aid} is for {', '.join(map(str, tools))}, not {tool}. Ask the owner about {tool} with `approval request`.")
     if ap.get("status") != "approved":
         raise ToolError(f"Approval {aid} is {ap.get('status')}, not approved. Do not start a setup.")
     runs = config.work() / "runs"
-    used = [f.stem for f in sorted(runs.glob("*.json")) if json.loads(f.read_text()).get("approval") == aid] if runs.exists() else []
+    def counts(r: dict) -> bool:
+        return (r.get("approval") == aid and r.get("tool_id", tool) == tool
+                and r.get("provider", "tf") == provider)
+    used = [f.stem for f in sorted(runs.glob("*.json")) if counts(json.loads(f.read_text()))] if runs.exists() else []
     if len(used) >= RUNS_PER_APPROVAL:
         raise ToolError(f"Approval {aid} was already used for runs {', '.join(used)}. Ask the owner again with `approval request`.")
 

@@ -49,3 +49,10 @@ def test_can_agent_setup_requires_verified_flag_and_playbook():
     no_playbook = Tool(**tool_data(setup={**setup_on, "playbook": None}))
     assert not can_agent_setup(no_playbook)
     assert can_agent_setup(Tool(**tool_data(setup=setup_on)))
+
+
+def test_a_recorded_flow_counts_like_a_playbook():
+    flow_only = {"minutes": 10, "difficulty": "easy", "agent_setup": True, "playbook": None, "flow": "rzrv"}
+    assert can_agent_setup(Tool(**tool_data(setup=flow_only)))
+    caution = Tool(**tool_data(setup=flow_only, trust={"score": 70, "badge": "caution", "signals": {}}))
+    assert not can_agent_setup(caution)  # still only verified tools

@@ -2,13 +2,15 @@
 import { useState } from "react";
 import type { OwnerBundle } from "@/lib/types";
 import { toolById } from "@/lib/catalog";
-import { ApiError, decide, revealPassword } from "@/lib/api";
+import { ApiError, decide } from "@/lib/api";
 
 export const HELPERS = [
   { name: "Maryland SBDC", url: "https://www.marylandsbdc.org", short: "Free one-on-one business advice.", what: "Free one-on-one business advice from the Maryland Small Business Development Center." },
   { name: "SCORE", url: "https://www.score.org/find-mentor", short: "Free mentors who ran a business.", what: "Free mentors who have run their own businesses." },
   { name: "SBA Baltimore District Office", url: "https://www.sba.gov/district/baltimore", short: "The U.S. small business office.", what: "The U.S. Small Business Administration office that serves Maryland." },
 ];
+
+const LINK_TEXT: Record<string, string> = { booking_page: "Your booking page", chat_page: "Your chat page" };
 
 const STATUS_TEXT: Record<string, string> = {
   planned: "Planned",
@@ -66,9 +68,7 @@ export function Approval({ ownerId, a, onTurn, onChange }: {
 }
 
 /** One setup and where it stands. `liveLink` adds a link to the agent's live browser (the owner page embeds it instead). */
-export function SetupRecordView({ ownerId, s, live, liveLink = true }: { ownerId: string; s: OwnerBundle["setups"][string]; live: boolean; liveLink?: boolean }) {
-  const [pw, setPw] = useState<string | null | undefined>(undefined);
-  const [busy, setBusy] = useState(false);
+export function SetupRecordView({ s, liveLink = true }: { ownerId: string; s: OwnerBundle["setups"][string]; live: boolean; liveLink?: boolean }) {
   const name = toolById(s.tool_id)?.name ?? s.tool_id;
   return (
     <div className="rounded-2xl p-5 bg-raised border border-line">
@@ -78,27 +78,11 @@ export function SetupRecordView({ ownerId, s, live, liveLink = true }: { ownerId
       {liveLink && s.streaming_url?.startsWith("http") && s.status !== "done" && (
         <p className="mt-2"><a href={s.streaming_url} target="_blank" rel="noopener noreferrer">Watch live</a></p>
       )}
-      {(s.login_url || s.username) && (
-        <dl className="mt-3 grid gap-2 text-base">
-          {s.login_url && (<div><dt className="eyebrow">Log in at</dt><dd><a href={s.login_url} target="_blank" rel="noopener noreferrer" className="break-all">{s.login_url}</a></dd></div>)}
-          {s.username && (<div><dt className="eyebrow">Username</dt><dd className="break-all">{s.username}</dd></div>)}
-          {live && s.has_password && (
-            <div>
-              <dt className="eyebrow">Password</dt>
-              <dd>
-                {pw === undefined && (
-                  <button className="btn btn-secondary" disabled={busy} onClick={async () => {
-                    setBusy(true);
-                    try { setPw(await revealPassword(ownerId, s.tool_id)); } catch { setPw(null); } finally { setBusy(false); }
-                  }}>Show password once</button>
-                )}
-                {typeof pw === "string" && (<><code className="bg-grey-tint px-2 py-1 rounded break-all">{pw}</code><p className="text-soft mt-1">Write it down or save it now. We will not show it again.</p></>)}
-                {pw === null && <p>Already shown. For safety we only show it once. Use &quot;forgot password&quot; on the login page if you lost it.</p>}
-              </dd>
-            </div>
-          )}
-        </dl>
-      )}
+      {Object.entries(s.links ?? {}).filter(([, u]) => /^https?:\/\//i.test(u)).map(([k, u]) => (
+        <p key={k} className="mt-3 text-lg font-semibold">
+          <a href={u} target="_blank" rel="noopener noreferrer">{LINK_TEXT[k] ?? "Open it"}</a>
+        </p>
+      ))}
       {s.configured.length > 0 && (
         <div className="mt-4"><p className="font-semibold">What we set up</p><ul className="list-disc pl-5">{s.configured.map((c) => <li key={c}>{c}</li>)}</ul></div>
       )}

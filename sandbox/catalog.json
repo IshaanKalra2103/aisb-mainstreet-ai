@@ -115,7 +115,8 @@
     "minutes": 30,
     "difficulty": "easy",
     "agent_setup": false,
-    "playbook": null
+    "playbook": null,
+    "flow": "picktime"
    },
    "integrations": [
     "square",
@@ -210,7 +211,8 @@
     "minutes": 30,
     "difficulty": "easy",
     "agent_setup": false,
-    "playbook": null
+    "playbook": null,
+    "flow": "schedulingkit"
    },
    "integrations": [
     "square",
@@ -559,7 +561,8 @@
     "minutes": 15,
     "difficulty": "easy",
     "agent_setup": false,
-    "playbook": null
+    "playbook": null,
+    "flow": "rzrv"
    },
    "integrations": [
     "google_business",
@@ -6679,7 +6682,8 @@
     "minutes": 30,
     "difficulty": "easy",
     "agent_setup": true,
-    "playbook": "setup-chatling"
+    "playbook": "setup-chatling",
+    "flow": "chatling"
    },
    "integrations": [
     "website",

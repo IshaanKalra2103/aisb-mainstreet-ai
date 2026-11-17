@@ -1,7 +1,7 @@
 # MainStreet AI agent sandbox: Claude Code + the mstools CLIs, nothing else.
 FROM node:22-bookworm-slim
 COPY --from=ghcr.io/astral-sh/uv:0.8.4 /uv /uvx /bin/
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libatomic1 && rm -rf /var/lib/apt/lists/* \
  && npm install -g @anthropic-ai/claude-code@2.1.319 && npm cache clean --force
 ENV UV_PYTHON_INSTALL_DIR=/opt/python UV_LINK_MODE=copy PATH=/opt/venv/bin:$PATH
 COPY tools /tools

@@ -170,6 +170,13 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   const [busy, setBusy] = useState(false);
   const closeRef = useRef<(() => void) | null>(null);
   const params = useSearchParams();
+  // /b/<owner>#setup (the link in our texts) opens the Setup tab, on load and when the hash changes.
+  useEffect(() => {
+    const fromHash = () => { if (window.location.hash === "#setup") setMode("setup"); };
+    fromHash();
+    window.addEventListener("hashchange", fromHash);
+    return () => window.removeEventListener("hashchange", fromHash);
+  }, []);
   const initialTurn = params.get("turn");
   // The site the owner pasted on the landing page, for the wait screen's title.
   const site = params.get("site");
@@ -316,6 +323,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
 
   // The live view of each setup our agent is running in its cloud browser (TinyFish's read-only stream).
   const streams = records.filter((s) => s.streaming_url?.startsWith("http") && (s.status === "running" || s.status === "needs_owner"));
+  const starting = records.filter((s) => s.status === "running" && !s.streaming_url?.startsWith("http"));
 
   // A new approval waiting for the owner opens the Setup tab.
   const pendingCount = pending.length;
@@ -506,7 +514,12 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         )}
         {live ? (
           <>
-            {streams.map((s) => <LiveBrowser key={s.tool_id} s={s} />)}
+            {(streams.length > 0 || starting.length > 0) && (
+              <div className="grid gap-4 lg:grid-cols-2">
+                {streams.map((s) => <LiveBrowser key={s.tool_id} s={s} />)}
+                {starting.map((s) => <StartingBrowser key={s.tool_id} s={s} />)}
+              </div>
+            )}
             {pending.length > 0 && <p className="eyebrow">Waiting for your OK</p>}
             {pending.map((a) => <Approval key={`${a.id}-${a.status}`} ownerId={ownerId} a={a} onTurn={follow} onChange={refresh} />)}
             {declined.map((a) => <Approval key={`${a.id}-${a.status}`} ownerId={ownerId} a={a} onTurn={follow} onChange={refresh} />)}
@@ -753,7 +766,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
             <figure>
               <video src={previewSrc(sheet.preview) ?? undefined} autoPlay muted controls playsInline loop
                 className="block w-full h-auto max-h-[70dvh] aspect-[auto_16/9] rounded-2xl bg-black object-contain" />
-              <figcaption className="mt-3 text-lg font-semibold">AI-generated preview of how {sheet.name} would work in your business</figcaption>
+              <figcaption className="mt-3 text-lg font-semibold">{sheet.preview.kind === "site" ? `AI-made preview of ${sheet.name} on your website` : `AI-generated preview of how ${sheet.name} would work in your business`}</figcaption>
             </figure>
           </Sheet>
         )}
@@ -797,7 +810,25 @@ function LiveBrowser({ s }: { s: OwnerBundle["setups"][string] }) {
         </span>
         <a href={url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-sm font-semibold">Open full screen</a>
       </figcaption>
-      <iframe src={url} title={`${name} setup, live`} className="block aspect-[16/10] w-full border-0 bg-grey-tint" />
+      {/* View-only, as Browser Use's docs show: inert + no pointer events, so nobody can type into the agent's browser. */}
+      <div {...{ inert: true }} style={{ pointerEvents: "none" }}>
+        <iframe src={url} title={`${name} setup, live`} tabIndex={-1} allow="autoplay" style={{ pointerEvents: "none" }}
+          className="block aspect-[16/10] w-full border-0 bg-grey-tint" />
+      </div>
+    </figure>
+  );
+}
+
+/** The slot of the live window while the agent's cloud browser is still starting up. */
+function StartingBrowser({ s }: { s: OwnerBundle["setups"][string] }) {
+  const name = toolById(s.tool_id)?.name ?? s.tool_id;
+  return (
+    <figure className="overflow-hidden rounded-[var(--photo-radius)] border border-line bg-card">
+      <figcaption className="flex items-center gap-2 px-4 py-2.5 font-semibold">
+        <span aria-hidden className="soft-pulse size-2.5 shrink-0 rounded-full bg-accent" />
+        <span className="truncate">Live: {name}</span>
+      </figcaption>
+      <div className="grid aspect-[16/10] w-full place-items-center bg-grey-tint text-lg text-muted">Starting the browser…</div>
     </figure>
   );
 }
@@ -807,8 +838,8 @@ function SetupReplay() {
   const steps = [
     "You say yes to the plan we show you. Nothing starts before that.",
     "Our agent opens the tool's sign-up in its own cloud browser and fills in your shop's details, with a new inbox we made for it.",
-    "It stops at the human check and hands that step to you. We never get past one for you.",
-    "You get the login and a short list of what is next.",
+    "Our agent gets past robot checks by itself. Only a step that needs your phone, your ID or a payment comes back to you.",
+    "You get a link to what we set up and a short list of what is next.",
   ];
   return (
     <div>
@@ -818,7 +849,7 @@ function SetupReplay() {
           <span className="truncate">app.chatling.ai/register</span>
         </figcaption>
         <video data-testid="setup-replay" src="/setup/chatling-signup.mp4" poster="/setup/chatling-signup.jpg" muted loop autoPlay playsInline preload="metadata"
-          aria-label="Our setup agent filling in a Chatling sign-up form, then stopping at the human check" className="block aspect-[8/9] w-full object-cover" />
+          aria-label="Our setup agent filling in a Chatling sign-up form, then getting past the robot check" className="block aspect-[8/9] w-full object-cover" />
       </figure>
       <p className="mt-4 text-lg leading-snug">Our setup agent signing a shop up for Chatling. In a live session you watch your own setup happen here, as it runs.</p>
       <ol className="mt-4 grid gap-3">

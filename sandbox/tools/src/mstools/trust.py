@@ -20,4 +20,4 @@ def score_signals(signals: dict[str, Signal], human_approved: bool) -> Trust:
 
 
 def can_agent_setup(tool: Tool) -> bool:
-    return tool.trust.badge == "verified" and tool.setup.agent_setup and bool(tool.setup.playbook)
+    return tool.trust.badge == "verified" and tool.setup.agent_setup and bool(tool.setup.playbook or tool.setup.flow)

@@ -188,7 +188,7 @@ test("the Setup tab on an example business plays a recorded run of the setup age
   await expect(replay).toHaveAttribute("src", "/setup/chatling-signup.mp4");
   expect((await request.get("/setup/chatling-signup.mp4")).status()).toBe(200);
   await expect(setup.getByText(/Recorded run/)).toBeVisible();
-  await expect(setup.getByText(/human check/).first()).toBeVisible();
+  await expect(setup.getByText(/gets past robot checks by itself/).first()).toBeVisible();
   await expect(setup.getByRole("heading", { name: "Prefer a person?" })).toBeVisible();
 });
 

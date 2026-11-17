@@ -10,7 +10,8 @@ from .ws import load, save
 def _main(a: argparse.Namespace) -> dict:
     if a.cmd == "request":
         aid = "ap_" + uuid.uuid4().hex[:10]
-        save("approval", {"id": aid, "tool_id": a.tool, "summary": a.summary, "status": "pending",
+        tools = list(dict.fromkeys(a.tool))
+        save("approval", {"id": aid, "tool_id": tools[0], "tool_ids": tools, "summary": a.summary, "status": "pending",
                           "created_at": datetime.now(timezone.utc).isoformat()})
         return {"approval_id": aid, "status": "pending",
                 "message": "Approval requested. End your turn now; the owner will decide."}
@@ -24,7 +25,7 @@ def main() -> None:
     p = argparse.ArgumentParser(prog="approval", description="Request or check an owner approval.")
     sub = p.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("request")
-    r.add_argument("--tool", required=True)
+    r.add_argument("--tool", required=True, action="append", help="repeat for one yes covering several tools")
     r.add_argument("--summary", required=True)
     s = sub.add_parser("status")
     s.add_argument("id")

@@ -145,7 +145,7 @@ class Workspaces:
         for f in sorted(d.glob("setup_*.json")):
             if (s := _read(f)):
                 has = bool(s.get("password")) and s["tool_id"] not in revealed
-                rec = {k: v for k, v in redact(s).items() if k != "password"}
+                rec = {k: v for k, v in redact(s).items() if k not in ("password", "username", "inbox")}
                 setups[s["tool_id"]] = {**rec, "has_password": has}
         approvals = [a for f in sorted((d / "approvals").glob("*.json")) if (a := _read(f))] if (d / "approvals").exists() else []
         approvals.sort(key=lambda a: a.get("created_at", ""))

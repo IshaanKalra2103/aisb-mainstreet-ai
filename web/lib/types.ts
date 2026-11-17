@@ -98,6 +98,7 @@ export interface Preview {
   prompt: string;
   status: "completed" | "failed" | "capped";
   video_file?: string | null;
+  kind?: "plain" | "site";
   cost_usd: number;
 }
 export interface SetupRecord {
@@ -108,7 +109,7 @@ export interface SetupRecord {
   streaming_url?: string | null;
   inbox?: string | null;
   login_url?: string | null;
-  username?: string | null;
+  links?: Record<string, string>;
   password?: string | null;
   configured: string[];
   next_steps: string[];
