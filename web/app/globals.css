@@ -122,4 +122,4 @@ img, video { max-width: 100%; }
 @media (max-width: 640px) { body:has([data-deck]) > header { display: none; } }
 
 /* Short phones (about 390x664 and under): a shorter deck card keeps the card clear of the floating Ask us button. */
-@media (max-width: 639px) and (max-height: 700px) { .deck-card { height: clamp(380px, calc(100dvh - 300px), 640px); } }
+@media (max-width: 639px) and (max-height: 700px) { .deck-card { min-height: clamp(380px, calc(100dvh - 300px), 640px); } }

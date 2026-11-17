@@ -18,20 +18,23 @@ test("the home page shows the example streets", async ({ page }) => {
   await expect(page.locator('a[href="/b/demo-coffee"] img').first()).toHaveAttribute("src", "/places/coffee/hero.jpg");
 });
 
-test("an example owner page shows the shop's street on the profile and a different view on each job", async ({ page }) => {
+test("an example owner page shows the shop's street above the deck and a photo of the job on each job card", async ({ page }) => {
   await page.goto("/b/demo-coffee");
   const card = (name: RegExp) => page.getByRole("article", { name }).getByTestId("place-photo");
-  await expect(card(/Here's what we understood/)).toHaveAttribute("src", "/places/coffee/hero.jpg");
-  // Job 1 of coffee has a preview video; job 2 has none, so it shows a photo of another view of the street.
-  await page.keyboard.press("ArrowRight");
-  await page.keyboard.press("ArrowRight");
-  await expect(card(/Website chat and FAQ/)).toHaveAttribute("src", "/places/coffee/job-2.jpg");
+  await expect(page.getByRole("region", { name: "Your business" }).getByTestId("place-photo")).toHaveAttribute("src", "/places/coffee/hero.jpg");
+  // Job 1 of coffee has a preview video; job 2 has none, so it shows a photo of the job being done.
+  await page.getByRole("button", { name: "Not now" }).click();
+  const img = card(/Website chat and FAQ/);
+  await expect(img).toHaveAttribute("src", /^\/jobs\/(coffee\/)?website-chat(-2)?\.jpg$/);
+  await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(0);
 });
 
 test("a live owner's photos come from the street photo route, at the shared location", async ({ page }) => {
   const profile = { name: "Bean & Brick Coffee", business_type: "coffee_shop", city: "Frederick", state: "MD", size: "s",
     website: null, uses: [], pains: [], summary: "A coffee shop.", facts: [], lat: 39.4143, lon: -77.4105 };
-  const needs = { items: [{ need_id: "website-chat", title: "Answer questions on your website", why: "w", est_hours_saved_week: 2 }] };
+  const needs = { items: [
+    { need_id: "website-chat", title: "Answer questions on your website", why: "w", est_hours_saved_week: 2 },
+    { need_id: "shelf-stock", title: "Keep the shelves stocked", why: "w", est_hours_saved_week: 1 }] };
   await page.route(`${API}/**`, async (route) => {
     const req = route.request();
     if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: CORS });
@@ -47,9 +50,11 @@ test("a live owner's photos come from the street photo route, at the shared loca
   await page.route("**/api/street?**", (route) => route.fulfill({ path: "public/places/coffee/hero.jpg" }));
   await page.goto("/b/o_test000001");
   const card = (name: RegExp) => page.getByRole("article", { name }).getByTestId("place-photo");
-  await expect(card(/Here's what we understood/)).toHaveAttribute("src", "/api/street?lat=39.41430&lon=-77.41050");
-  await page.keyboard.press("ArrowRight");
-  await expect(card(/Answer questions on your website/)).toHaveAttribute("src", "/api/street?lat=39.41430&lon=-77.41050&view=1");
+  await expect(page.getByRole("region", { name: "Your business" }).getByTestId("place-photo")).toHaveAttribute("src", "/api/street?lat=39.41430&lon=-77.41050");
+  // A job we have a photo for shows that photo; a job we know nothing about shows another angle of the street.
+  await expect(card(/Answer questions on your website/)).toHaveAttribute("src", /^\/jobs\/website-chat(-2)?\.jpg$/);
+  await page.getByRole("button", { name: "Not now" }).click();
+  await expect(card(/Keep the shelves stocked/)).toHaveAttribute("src", "/api/street?lat=39.41430&lon=-77.41050&view=2");
 });
 
 test("the street photo route refuses requests without a place", async ({ request }) => {
@@ -82,4 +87,106 @@ test("tool cards show the tool's logo", async ({ page }) => {
   const first = page.getByTestId("tool-card").first();
   await expect(first.getByTestId("tool-logo")).toHaveAttribute("src", /favicons\?domain=/);
   await expect(first.getByTestId("tool-logo")).toBeVisible();
+});
+
+// iMessage plays og:video as a muted looping preview of the link (Apple TN3156): a direct mp4 at the og:image's size.
+for (const [name, path, video] of [
+  ["home page", "/", "/og/home.mp4"],
+  ["example owner page", "/b/demo-coffee", "/og/demo-coffee.mp4"],
+  ["live owner page", "/b/o_test000001", "/og/home.mp4"],
+] as const) {
+  test(`the ${name} has a looping video link preview`, async ({ page, request }) => {
+    await page.goto(path);
+    const meta = (p: string) => page.locator(`meta[property="${p}"]`).first();
+    const src = await meta("og:video").getAttribute("content");
+    expect(src).toMatch(/^https:\/\//);
+    expect(new URL(src!).pathname).toBe(video);
+    await expect(meta("og:video:type")).toHaveAttribute("content", "video/mp4");
+    await expect(meta("og:video:width")).toHaveAttribute("content", "1200");
+    await expect(meta("og:video:height")).toHaveAttribute("content", "630");
+    const r = await request.get(video);
+    expect(r.status()).toBe(200);
+    expect(r.headers()["content-type"]).toBe("video/mp4");
+    expect((await r.body()).length).toBeLessThan(2_000_000);
+  });
+}
+
+test("the business summary is its own section above the deck, and the deck starts on the first job", async ({ page }) => {
+  await page.goto("/b/demo-coffee");
+  const about = page.getByRole("region", { name: "Your business" });
+  await expect(about.getByText(/Daniel Ortiz runs Bean & Brick/)).toBeVisible();
+  await expect(about.locator("article")).toHaveCount(0);
+  await expect(page.getByRole("article", { name: /Here's what we understood/ })).toHaveCount(0);
+  await expect(page.getByRole("article", { name: /^Social posts and specials, 1 of / })).toBeVisible();
+  const aboutBox = await about.boundingBox();
+  const deckBox = await page.getByRole("region", { name: "Your cards" }).boundingBox();
+  expect(aboutBox!.y + aboutBox!.height).toBeLessThanOrEqual(deckBox!.y);
+});
+
+test("the list view shows only the numbered jobs with our pick, and switches back to cards", async ({ page }) => {
+  await page.goto("/b/demo-coffee");
+  await page.getByRole("button", { name: "List", exact: true }).click();
+  const rows = page.getByTestId("need-item");
+  await expect(rows).toHaveCount(4);
+  await expect(rows.first()).toContainText("Job 1");
+  await expect(rows.first()).toContainText("Social posts and specials");
+  await expect(rows.first()).toContainText("Our pick: Apaya");
+  await expect(page.getByRole("list", { name: "All jobs" }).getByRole("listitem")).toHaveCount(4);
+  await rows.nth(1).click();
+  await expect(page.getByRole("article", { name: /^Website chat and FAQ, 2 of / })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cards", exact: true })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("the Setup tab on an example business plays a recorded run of the setup agent, which stops at the human check", async ({ page, request }) => {
+  await page.goto("/b/demo-coffee");
+  await page.getByRole("button", { name: "Setup", exact: true }).click();
+  const setup = page.getByRole("region", { name: "Setup" });
+  const replay = setup.getByTestId("setup-replay");
+  await expect(replay).toHaveAttribute("src", "/setup/chatling-signup.mp4");
+  expect((await request.get("/setup/chatling-signup.mp4")).status()).toBe(200);
+  await expect(setup.getByText(/Recorded run/)).toBeVisible();
+  await expect(setup.getByText(/human check/).first()).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Prefer a person?" })).toBeVisible();
+});
+
+test("Set it up on an example job opens the Setup tab", async ({ page }) => {
+  await page.goto("/b/demo-coffee");
+  await page.getByRole("button", { name: "Set it up" }).click();
+  await expect(page.getByRole("button", { name: "Setup", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("region", { name: "Setup" })).toBeVisible();
+});
+
+test("job cards have two choices, Not now and Set it up, and the preview opens from the video", async ({ page }) => {
+  await page.goto("/b/demo-coffee");
+  const card = page.getByRole("article", { name: /^Social posts and specials, 1 of / });
+  await expect(card.getByRole("button", { name: "Show me" })).toHaveCount(0);
+  await expect(card.getByRole("button", { name: "Not now" })).toBeVisible();
+  await card.getByRole("button", { name: /Watch the preview/ }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+});
+
+test("a running setup shows the agent's cloud browser live in the Setup tab", async ({ page }) => {
+  const profile = { name: "Bean & Brick Coffee", business_type: "coffee_shop", city: "Frederick", state: "MD", size: "s",
+    website: null, uses: [], pains: [], summary: "A coffee shop.", facts: [] };
+  const needs = { items: [{ need_id: "website-chat", title: "Answer questions on your website", why: "w", est_hours_saved_week: 2 }] };
+  const live = "https://live.example.test/session/abc";
+  const setups = { chatling: { tool_id: "chatling", status: "running", streaming_url: live, configured: [], next_steps: [], has_password: false } };
+  await page.route(`${API}/**`, async (route) => {
+    const req = route.request();
+    if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: CORS });
+    const path = new URL(req.url()).pathname;
+    if (path === "/api/health") return route.fulfill({ headers: CORS, contentType: "application/json", body: '{"ok":true}' });
+    if (path === "/api/owners/o_test000001") {
+      return route.fulfill({ headers: CORS, contentType: "application/json", body: JSON.stringify({
+        owner_id: "o_test000001", source: "x", profile, needs, compares: {}, previews: {}, setups, approvals: [], messages: [], active_turn: null }) });
+    }
+    return route.abort();
+  });
+  await page.route("https://live.example.test/**", (route) => route.fulfill({ contentType: "text/html", body: "<p>agent browser</p>" }));
+  await page.goto("/b/o_test000001");
+  await expect(page.getByRole("button", { name: /Setup/ })).toContainText("Live");
+  await page.getByRole("button", { name: /Setup/ }).click();
+  const setup = page.getByRole("region", { name: "Setup" });
+  await expect(setup.locator("iframe")).toHaveAttribute("src", live);
+  await expect(setup.getByRole("link", { name: /Open full screen/ })).toHaveAttribute("href", live);
 });

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import BusinessView from "@/components/BusinessView";
 import { demoBundles } from "@/data/demo";
 import { APP_NAME } from "@/lib/brand";
+import { ogVideo } from "@/lib/ogVideo";
 
 // The iMessage card for the owner's link: og:title under the big image (opengraph-image.tsx draws the shop's street).
 // A live owner's name is in the image; the title stays generic so the page never waits on the agent to render it.
@@ -13,7 +14,9 @@ export async function generateMetadata({ params }: PageProps<"/b/[ownerId]">): P
   const title = p?.name ?? "Your AI plan";
   const description = p ? `What AI can take off the plate at ${p.name} in ${p.city}, ${p.state}, and which tools we checked.`
     : "The jobs AI can take off your plate, the tools we checked, and what we set up for you.";
-  return { title, description, openGraph: { title, description, siteName: APP_NAME, type: "website" } };
+  // The link plays as a short loop in iMessage: an example's shop front and its AI preview, or the examples' montage.
+  const videos = ogVideo(p ? ownerId : "home");
+  return { title, description, openGraph: { title, description, siteName: APP_NAME, type: "video.other", videos } };
 }
 
 export function generateStaticParams() {

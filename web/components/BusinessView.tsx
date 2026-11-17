@@ -12,17 +12,17 @@ import { Approval, HELPERS, SetupRecordView } from "./SetupPanel";
 import OfflineBanner from "./OfflineBanner";
 import TurnLog from "./TurnLog";
 import ChatBox from "./ChatBox";
-import { placePhoto } from "@/lib/places";
+import { jobPhoto, placePhoto } from "@/lib/places";
 import ToolLogo from "./ToolLogo";
 import Sheet from "./Sheet";
 
 type Preview = OwnerBundle["previews"][string];
 type CardDef =
   | { key: string; kind: "intro" }
-  | { key: string; kind: "profile" }
-  | { key: string; kind: "job"; need: NeedItem; n: number; tool?: Tool; preview?: Preview }
-  | { key: string; kind: "setup" }
-  | { key: string; kind: "helpers" };
+  | { key: string; kind: "job"; need: NeedItem; n: number; tool?: Tool; preview?: Preview };
+/** The three ways to see the jobs: one card at a time, all of them in a list, and what our agent is setting up. */
+type Mode = "deck" | "overview" | "setup";
+const TABS: { id: Mode; label: string }[] = [{ id: "deck", label: "Cards" }, { id: "overview", label: "List" }, { id: "setup", label: "Setup" }];
 type SheetState =
   | { kind: "compare"; need: NeedItem }
   | { kind: "trust"; tool: Tool }
@@ -35,6 +35,7 @@ const spring = { type: "spring" as const, stiffness: 320, damping: 32 };
 const Icon = {
   x: <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>,
   play: <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="currentColor"><path d="M7 4.5v15l13-7.5z" /></svg>,
+  playSm: <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden fill="currentColor"><path d="M7 4.5v15l13-7.5z" /></svg>,
   check: <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>,
   chat: <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="currentColor"><path d="M12 3C6.9 3 3 6.5 3 10.8c0 2.4 1.2 4.5 3.2 5.9L5.5 21l4.4-2.5c.7.1 1.4.2 2.1.2 5.1 0 9-3.5 9-7.9S17.1 3 12 3z" /></svg>,
   grid: <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="4" y="4" width="16" height="6" rx="2" /><rect x="4" y="14" width="16" height="6" rx="2" /></svg>,
@@ -71,7 +72,7 @@ function CardPhoto({ src, img, className, children }: { src: string | null; img?
     <div className={`relative mx-2.5 mt-2.5 overflow-hidden rounded-[var(--photo-radius)] bg-grey-tint ${className ?? "flex-1 min-h-[96px] sm:min-h-[36%]"}`}>
       <div aria-hidden className="absolute inset-0 bg-[radial-gradient(80%_80%_at_0%_0%,var(--wash-a),transparent_70%),radial-gradient(80%_80%_at_100%_100%,var(--wash-b),transparent_70%)]" />
       {src
-        ? <video src={src} muted loop autoPlay playsInline preload="auto" aria-hidden className="relative h-full w-full object-cover" />
+        ? <video src={src} muted loop autoPlay playsInline preload="auto" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
         : img && <PlaceImg src={img} className="absolute inset-0 h-full w-full object-cover" />}
       {(src || img) && <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgb(0_0_0/.38),transparent_30%,transparent_62%,rgb(0_0_0/.5))]" />}
       {children}
@@ -107,7 +108,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   const [active, setActive] = useState(false);
   const [index, setIndex] = useState(0);
   const [dir, setDir] = useState(1);
-  const [mode, setMode] = useState<"deck" | "overview">("deck");
+  const [mode, setMode] = useState<Mode>("deck");
   const [sheet, setSheet] = useState<SheetState>(null);
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -149,6 +150,13 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
       }
     });
   }, [refresh]);
+
+  // While a turn runs, check for new records every few seconds, so a setup's live browser appears as soon as it starts.
+  useEffect(() => {
+    if (!live || !active) return;
+    const t = setInterval(() => { void refresh(); }, CHECK_MS);
+    return () => clearInterval(t);
+  }, [live, active, refresh]);
 
   useEffect(() => {
     if (!live) return;
@@ -226,8 +234,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   const cards: CardDef[] = useMemo(() => {
     if (!bundle) return [];
     const out: CardDef[] = [];
-    if (bundle.profile) out.push({ key: "profile", kind: "profile" });
-    else if (live) out.push({ key: "intro", kind: "intro" });
+    if (!bundle.profile && live) out.push({ key: "intro", kind: "intro" });
     (bundle.needs?.items ?? []).forEach((need, i) => {
       const c = bundle.compares[need.need_id];
       const tool = c ? toolById(c.recommended_tool_id) : undefined;
@@ -235,23 +242,21 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         ?? Object.values(bundle.previews).find((p) => c?.options.some((o) => o.tool_id === p.tool_id));
       out.push({ key: `job-${need.need_id}`, kind: "job", need, n: i + 1, tool, preview });
     });
-    out.push({ key: "setup", kind: "setup" });
-    out.push({ key: "helpers", kind: "helpers" });
     return out;
   }, [bundle, live]);
 
   const pending = bundle?.approvals.filter((a) => a.status === "pending") ?? [];
   const records = bundle ? Object.values(bundle.setups) : [];
 
-  // A new approval waiting for the owner becomes the focused card.
+  // The live view of each setup our agent is running in its cloud browser (TinyFish's read-only stream).
+  const streams = records.filter((s) => s.streaming_url?.startsWith("http") && (s.status === "running" || s.status === "needs_owner"));
+
+  // A new approval waiting for the owner opens the Setup tab.
   const pendingCount = pending.length;
   const [seenPending, setSeenPending] = useState(pendingCount);
   if (pendingCount !== seenPending) {
     setSeenPending(pendingCount);
-    if (live && pendingCount > seenPending) {
-      const i = cards.findIndex((c) => c.kind === "setup");
-      if (i >= 0) { setIndex(i); setMode("deck"); }
-    }
+    if (live && pendingCount > seenPending) setMode("setup");
   }
 
   const at = Math.min(index, Math.max(cards.length - 1, 0));
@@ -274,12 +279,16 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
 
   const closeSheet = useCallback(() => setSheet(null), []);
 
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const show = (m: Mode) => {
+    setMode(m);
+    const top = tabsRef.current?.getBoundingClientRect().top;
+    if (top !== undefined && top < 0) tabsRef.current?.scrollIntoView({ block: "start" });
+  };
   const setItUp = async () => {
-    const setupAt = cards.findIndex((c) => c.kind === "setup");
-    if (!live) { go(setupAt); return; }
-    if (pending.length) { go(setupAt); return; }
+    if (!live || pending.length) { show("setup"); return; }
     setBusy(true); setActionError("");
-    try { await send("Set it up for me"); }
+    try { await send("Set it up for me"); show("setup"); }
     catch (e) { setActionError(e instanceof ApiError ? e.message : "We could not reach our agent just now. Please try again in a minute."); }
     finally { setBusy(false); }
   };
@@ -306,7 +315,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   const firstNeed = items[0];
   const suggestions = [
     ...items.filter((n) => !bundle?.compares[n.need_id]).slice(0, 2)
-      .map((n) => ({ label: `Compare tools for ${n.title.toLowerCase()}`, text: `Compare tools for ${n.title}` })),
+      .map((n) => ({ label: `Compare tools: ${n.title}`, text: `Compare tools for ${n.title}` })),
     { label: "Show me a preview", text: `Show me a preview of the best tool for ${firstNeed?.title ?? "my first job"}` },
     { label: "Set it up for me", text: "Set it up for me" },
   ];
@@ -314,29 +323,22 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   function cardTitle(c: CardDef): string {
     switch (c.kind) {
       case "intro": return "Getting to know you";
-      case "profile": return profile?.facts?.length ? "What we found about your shop" : "Here's what we understood";
       case "job": return c.need.title;
-      case "setup": return pending.length ? "Ready when you are" : "Getting set up";
-      case "helpers": return "Prefer a person?";
     }
   }
   function cardSub(c: CardDef): string {
     switch (c.kind) {
       case "intro": return "Tell us about your business";
-      case "profile": return profile ? `${BUSINESS_TYPE_LABELS[profile.business_type] ?? profile.business_type} in ${profile.city}` : "";
       case "job": return `About ${c.need.est_hours_saved_week} ${c.need.est_hours_saved_week === 1 ? "hour" : "hours"} a week`;
-      case "setup": return pending.length ? "Waiting for your OK" : records.length ? "See what we set up" : "Nothing happens until you say yes";
-      case "helpers": return "Free local help in Maryland";
     }
   }
   function cardSrc(c: CardDef): string | null {
     if (c.kind === "job") return previewSrc(c.preview);
     return null;
   }
-  /** The street photo for a card: the shop front on the profile, another angle of the street on each job. */
+  /** The photo for a job card: the job being done (another angle of the shop's street when we have no photo of it). */
   function cardImg(c: CardDef): string | null {
-    if (c.kind === "profile") return placePhoto(ownerId, profile, 0);
-    if (c.kind === "job") return placePhoto(ownerId, profile, c.n);
+    if (c.kind === "job") return jobPhoto(ownerId, c.need.need_id) ?? placePhoto(ownerId, profile, c.n);
     return null;
   }
 
@@ -344,21 +346,26 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
     const src = cardSrc(c);
     if (c.kind === "job") {
       const tool = c.tool;
-      const compare = bundle?.compares[c.need.need_id];
       return (
-        <div className="h-full flex flex-col">
-          <CardPhoto src={src} img={cardImg(c)}>
+        <div className="flex-1 flex flex-col">
+          <CardPhoto src={src} img={cardImg(c)} className="flex-1 min-h-[120px]">
             <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-3">
               <Pill onPhoto>Job {c.n} of {items.length}</Pill>
-              {src && <Pill onPhoto>AI-generated preview</Pill>}
+              {src && c.preview && (
+                <button type="button" aria-label={`Watch the preview of ${tool?.name ?? "this tool"}, made with AI`}
+                  onClick={() => setSheet({ kind: "preview", preview: c.preview!, name: tool?.name ?? c.preview!.tool_id })}
+                  className="flex items-center gap-1.5 rounded-full glass px-3 py-1 text-sm font-semibold active:scale-95 transition-transform">
+                  {Icon.playSm}Watch the AI preview
+                </button>
+              )}
             </div>
             <p className="absolute left-3 bottom-3 rounded-full glass px-3 py-1 text-sm font-semibold text-accent">
               About {c.need.est_hours_saved_week} {c.need.est_hours_saved_week === 1 ? "hour" : "hours"} a week
             </p>
           </CardPhoto>
-          <div className="shrink max-h-[64%] min-h-0 overflow-y-auto px-5 pt-3.5 sm:px-6">
-            <h2 className="text-[1.4rem] sm:text-[1.95rem] font-semibold leading-[1.08]">{c.need.title}</h2>
-            <p className="mt-1.5 text-base leading-snug text-muted line-clamp-2">{c.need.why}</p>
+          <div className="min-h-0 overflow-y-auto px-5 pt-3.5 sm:px-6">
+            <h2 className="text-[1.4rem] sm:text-[1.7rem] font-semibold leading-[1.1] text-balance">{c.need.title}</h2>
+            <p className="mt-1.5 text-base leading-snug text-muted">{c.need.why}</p>
             {tool ? (
               <div className="mt-2 sm:mt-3 rounded-2xl bg-raised border border-line/70 px-4 py-2.5 sm:py-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -389,64 +396,15 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
             {actionError && <p role="alert" className="mt-2 rounded-xl bg-err-tint px-3 py-2 font-semibold text-brick">{actionError}</p>}
           </div>
           <div className="shrink-0 flex gap-2 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
-            <BigButton icon={Icon.x} label="Not now" onClick={() => go(at + 1)} />
-            <BigButton icon={Icon.play} label="Show me" onClick={() => {
-              if (c.preview && src) setSheet({ kind: "preview", preview: c.preview, name: tool?.name ?? c.preview.tool_id });
-              else if (compare) setSheet({ kind: "compare", need: c.need });
-              else setSheet({ kind: "chat" });
-            }} />
+            <BigButton icon={Icon.x} label="Not now" onClick={() => (at < cards.length - 1 ? go(at + 1) : show("setup"))} />
             <BigButton icon={Icon.check} label={busy ? "One moment" : "Set it up"} primary disabled={busy || offline} onClick={setItUp} />
-          </div>
-        </div>
-      );
-    }
-    if (c.kind === "profile" && profile) {
-      const photo = cardImg(c);
-      return (
-        <div className="h-full flex flex-col">
-          {photo && (
-            <CardPhoto src={null} img={photo} className="shrink-0 h-[34%] min-h-[150px]">
-              <div className="absolute left-3 top-3"><Pill onPhoto>{cardTitle(c)}</Pill></div>
-            </CardPhoto>
-          )}
-          <div className={`flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 ${photo ? "pt-4" : "pt-5 sm:pt-6"}`}>
-            {!photo && <Pill>{cardTitle(c)}</Pill>}
-            <h2 className={`${photo ? "" : "mt-5 "}text-[2.1rem] sm:text-[2.4rem] font-semibold leading-[1.05]`}>{profile.name}</h2>
-            <p className="mt-2 text-lg text-muted">
-              {BUSINESS_TYPE_LABELS[profile.business_type] ?? profile.business_type} in {profile.city}, {profile.state}
-            </p>
-            <p className="mt-3 text-lg leading-snug line-clamp-4">{profile.summary}</p>
-            {!!profile.facts?.length && (
-              <ul className="mt-4 flex flex-col gap-2">
-                {profile.facts.slice(0, 5).map((f) => (
-                  <li key={f.source_url + f.text}>
-                    <a data-testid="fact" href={f.source_url} target="_blank" rel="noopener"
-                      className="flex flex-col rounded-2xl bg-grey-tint px-3.5 py-2.5 text-grey-ink hover:no-underline active:scale-[0.98] transition-transform duration-150">
-                      <span className="text-base leading-snug">{f.text}</span>
-                      <span className="mt-0.5 text-sm text-muted">{hostOf(f.source_url)}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="mt-5 eyebrow">Tools you already use</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {profile.uses.length ? profile.uses.map((u) => (
-                <span key={u} className="rounded-full bg-grey-tint px-3 py-1 text-base text-grey-ink">{INTEGRATION_LABELS[u] ?? u}</span>
-              )) : <span className="text-muted">None that we could see</span>}
-            </div>
-            <button type="button" onClick={() => setSheet({ kind: "chat" })}
-              className="mt-4 min-h-11 text-base font-semibold text-ink hover:underline underline-offset-4">Not right? Tell us</button>
-          </div>
-          <div className="shrink-0 flex px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
-            <BigButton icon={Icon.check} label={items.length ? `Show me the ${items.length} jobs` : "Next"} primary onClick={() => go(at + 1)} />
           </div>
         </div>
       );
     }
     if (c.kind === "intro") {
       return (
-        <div className="h-full flex flex-col">
+        <div className="flex-1 flex flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-5 sm:px-6 sm:pt-6">
             <Pill>Getting to know you</Pill>
             <h2 className="mt-5 text-[2.1rem] font-semibold leading-[1.05]">Tell us about your business</h2>
@@ -456,35 +414,46 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         </div>
       );
     }
-    if (c.kind === "setup") {
-      return (
-        <div className="h-full flex flex-col px-5 pt-5 pb-5 sm:px-6 sm:pt-6">
-          <div><Pill>{pending.length ? "Waiting for your OK" : "Getting set up"}</Pill></div>
-          <div className="mt-4 flex-1 min-h-0 overflow-y-auto grid content-start gap-4">
-            {live && pending.map((a) => <Approval key={a.id} ownerId={ownerId} a={a} onTurn={follow} />)}
-            {records.map((s) => <SetupRecordView key={s.tool_id} ownerId={ownerId} s={s} live={live} />)}
-            {pending.length === 0 && records.length === 0 && (
-              <div className="pt-2">
-                <h2 className="text-[2.1rem] font-semibold leading-[1.05]">Nothing happens until you say yes</h2>
-                <p className="mt-3 text-lg text-muted">
-                  {live
-                    ? "Pick a job and press Set it up. We will show you exactly what we would do, and wait for your OK."
-                    : "Setup runs in a live session. We show you exactly what we would do, and nothing happens until you approve it."}
-                </p>
+    return null;
+  }
+
+  const current = cards[at];
+  // A turn running in the background shows its progress here, except on the Setup tab, which shows it beside the live browser.
+  const showWorking = (active && mode !== "setup") || (!bundle && !loadError);
+  // On a phone the deck has its own "Ask us" button in the row under it, so the floating one never covers a card.
+  const deckOnPhone = !!bundle && !showWorking && mode === "deck" && !!current;
+  // A floor, not a fixed height: a card with more to say grows instead of clipping its text.
+  const cardH = "deck-card flex flex-col min-h-[clamp(480px,calc(100dvh-300px),640px)] sm:min-h-[clamp(500px,calc(100dvh-320px),720px)]";
+  const shopPhoto = profile ? placePhoto(ownerId, profile, 0) : null;
+  const tabsShown = !!bundle && (items.length > 0 || records.length > 0 || pending.length > 0 || mode === "setup");
+
+  function renderSetup() {
+    return (
+      <>
+        {active && (
+          <div className="flex items-center gap-3 rounded-2xl bg-grey-tint px-4 py-3">
+            <span aria-hidden className="soft-pulse size-3 shrink-0 rounded-full bg-[image:var(--orb)]" />
+            <p className="text-base font-semibold" aria-live="polite">{statusLine ? eventLine(statusLine) : "Working on it"}</p>
+          </div>
+        )}
+        {live ? (
+          <>
+            {streams.map((s) => <LiveBrowser key={s.tool_id} s={s} />)}
+            {pending.length > 0 && <p className="eyebrow">Waiting for your OK</p>}
+            {pending.map((a) => <Approval key={a.id} ownerId={ownerId} a={a} onTurn={follow} />)}
+            {records.map((s) => <SetupRecordView key={s.tool_id} ownerId={ownerId} s={s} live={live} liveLink={false} />)}
+            {!pending.length && !records.length && !active && (
+              <div>
+                <h3 className="text-[1.6rem] font-semibold leading-tight">Nothing happens until you say yes</h3>
+                <p className="mt-2 text-lg text-muted">Pick a job and press Set it up. We show you exactly what we would do and wait for your OK. Then you watch our agent set it up here, live.</p>
               </div>
             )}
-          </div>
-        </div>
-      );
-    }
-    // helpers
-    return (
-      <div className="h-full flex flex-col">
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-5 sm:px-6 sm:pt-6">
-          <Pill>Free local help</Pill>
-          <h2 className="mt-5 text-[2.1rem] font-semibold leading-[1.05]">Prefer a person?</h2>
+          </>
+        ) : <SetupReplay />}
+        <div className="mt-3 border-t border-line pt-6">
+          <h3 className="text-[1.6rem] font-semibold leading-tight">Prefer a person?</h3>
           <p className="mt-1 text-lg text-muted">Free help in Maryland.</p>
-          <ul className="mt-4 grid gap-2">
+          <ul className="mt-3 grid gap-2">
             {HELPERS.map((h) => (
               <li key={h.name}>
                 <a href={h.url} target="_blank" rel="noopener noreferrer" className="block rounded-2xl border border-line bg-raised px-4 py-2.5 hover:no-underline hover:bg-grey-tint">
@@ -495,34 +464,55 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
             ))}
           </ul>
         </div>
-        <div className="shrink-0 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
-          <a href={HELPERS[0].url} target="_blank" rel="noopener noreferrer" className="btn btn-primary w-full !min-h-14 text-lg">Find me a local helper</a>
-        </div>
-      </div>
+      </>
     );
   }
-
-  const current = cards[at];
-  const showWorking = active || (!bundle && !loadError);
-  const cardH = "deck-card h-[clamp(480px,calc(100dvh-300px),640px)] sm:h-[clamp(500px,calc(100dvh-320px),720px)]";
 
   return (
     <MotionConfig reducedMotion="user">
       <div data-deck className="mx-auto w-full max-w-[460px] px-4 pt-3 pb-28">
         {offline && live && <div className="mb-4"><OfflineBanner /></div>}
 
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="eyebrow truncate">{demo ? "Example business" : "Your business"}</p>
-            <h1 className="text-xl sm:text-2xl font-semibold mt-0.5 truncate">{profile?.name ?? "Getting to know your business"}</h1>
-          </div>
-          {bundle && !showWorking && mode === "deck" && (
-            <button type="button" className="btn btn-secondary shrink-0 !min-h-11 !px-4" onClick={() => setMode("overview")}>{Icon.grid}See all</button>
-          )}
-        </div>
+        <p className="eyebrow truncate">{demo ? "Example business" : "Your business"}</p>
+        <h1 className="mt-1 text-[1.9rem] sm:text-[2.2rem] font-semibold leading-[1.05] text-balance">{profile?.name ?? "Getting to know your business"}</h1>
+
+        {/* What we understood about the shop: part of the page, not a card, so the job cards below stand apart from it. */}
+        {profile && (
+          <section aria-label="Your business" className="mt-4">
+            {shopPhoto && (
+              <div className="relative aspect-[16/9] overflow-hidden rounded-[var(--photo-radius)] bg-grey-tint">
+                <PlaceImg src={shopPhoto} className="absolute inset-0 h-full w-full object-cover" />
+              </div>
+            )}
+            <p className="mt-4 eyebrow">{profile.facts?.length ? "What we found about your shop" : "Here's what we understood"}</p>
+            <p className="mt-1 text-lg text-muted">{BUSINESS_TYPE_LABELS[profile.business_type] ?? profile.business_type} in {profile.city}, {profile.state}</p>
+            <p className="mt-2 text-lg leading-snug">{profile.summary}</p>
+            {!!profile.facts?.length && (
+              <ul className="mt-3 flex flex-col gap-2">
+                {profile.facts.slice(0, 3).map((f) => (
+                  <li key={f.source_url + f.text}>
+                    <a data-testid="fact" href={f.source_url} target="_blank" rel="noopener"
+                      className="flex flex-col rounded-2xl bg-grey-tint px-3.5 py-2.5 text-grey-ink hover:no-underline active:scale-[0.98] transition-transform duration-150">
+                      <span className="text-base leading-snug">{f.text}</span>
+                      <span className="mt-0.5 text-sm text-muted">{hostOf(f.source_url)}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="text-base text-muted">Tools you already use:</span>
+              {profile.uses.length ? profile.uses.map((u) => (
+                <span key={u} className="rounded-full bg-grey-tint px-3 py-1 text-base text-grey-ink">{INTEGRATION_LABELS[u] ?? u}</span>
+              )) : <span className="text-base text-muted">none that we could see</span>}
+            </div>
+            <button type="button" onClick={() => setSheet({ kind: "chat" })}
+              className="mt-2 min-h-11 text-base font-semibold text-ink hover:underline underline-offset-4">Not right? Tell us</button>
+          </section>
+        )}
 
         {items.length > 0 && (
-          <ul aria-label="At a glance" className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <ul aria-label="At a glance" className="mt-4 grid grid-cols-3 gap-2 border-y border-line py-4 text-center">
             <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums">{items.length}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">jobs for AI</span></li>
             <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums text-accent">{hours}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">hours back a week</span></li>
             <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums">{catalog.tools.length}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">tools checked</span></li>
@@ -532,10 +522,30 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
           <p role="alert" className="mt-4 rounded-2xl bg-err-tint px-4 py-3 font-semibold text-brick">{eventLine(lastEvent)}</p>
         )}
 
+        {tabsShown && (
+          <div ref={tabsRef} className="mt-7 scroll-mt-3">
+            <h2 className="text-2xl font-semibold">{items.length ? `${items.length} ${items.length === 1 ? "job" : "jobs"} AI can take` : "Your plan"}</h2>
+            <div role="group" aria-label="How to see your jobs" className="mt-3 grid grid-cols-3 gap-1 rounded-full bg-grey-tint p-1">
+              {TABS.map((t) => (
+                <button key={t.id} type="button" aria-pressed={mode === t.id} onClick={() => setMode(t.id)}
+                  className={`flex h-10 items-center justify-center gap-1.5 rounded-full text-base font-semibold transition-[background-color,color] duration-150 ${mode === t.id ? "bg-card text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
+                  {t.label}
+                  {t.id === "setup" && streams.length > 0 && (
+                    <span className="flex items-center gap-1 rounded-full bg-accent px-1.5 py-px text-xs font-bold text-[#141518]"><span aria-hidden className="soft-pulse size-1.5 rounded-full bg-current" />Live</span>
+                  )}
+                  {t.id === "setup" && !streams.length && pending.length > 0 && (
+                    <span className="grid size-5 place-items-center rounded-full bg-ink text-xs font-bold text-paper">{pending.length}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <LayoutGroup>
           {showWorking ? (
             <section aria-live="polite" aria-label="Progress" className={`card !rounded-[var(--deck-radius)] relative mt-5 overflow-hidden ${cardH}`}>
-              <div className="relative h-full flex flex-col items-center justify-center p-6 text-center">
+              <div className="relative flex-1 flex flex-col items-center justify-center p-6 text-center">
                 <div className="soft-pulse h-20 w-20 rounded-full bg-[image:var(--orb)] shadow-[0_0_60px_var(--orb-glow)]" aria-hidden />
                 <p className="mt-8 eyebrow">Working on it</p>
                 <p className="mt-2 text-2xl font-semibold">{statusLine ? eventLine(statusLine) : "Loading your business..."}</p>
@@ -547,40 +557,44 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
               <p className="text-lg">We could not load this business page. It may have expired, or our agent may be resting.</p>
               <Link href="/demo" className="btn btn-primary mt-4">See the example businesses</Link>
             </div>
+          ) : mode === "setup" ? (
+            <section aria-label="Setup" className="mt-5 grid gap-4">{renderSetup()}</section>
           ) : mode === "overview" ? (
-            <section aria-label="All cards" className="mt-5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Everything at a glance</h2>
-                <button type="button" className="btn btn-secondary !min-h-11" onClick={() => setMode("deck")}>Back</button>
-              </div>
-              <ol className="mt-3 grid gap-3">
+            <div className="mt-5">
+              <ol aria-label="All jobs" className="grid gap-3">
                 {cards.map((c, i) => {
+                  if (c.kind !== "job") return null;
                   const thumb = cardSrc(c);
                   const still = thumb ? null : cardImg(c);
                   return (
                     <li key={c.key}>
-                      <motion.button layoutId={c.key} transition={spring} type="button"
-                        data-testid={c.kind === "job" ? "need-item" : undefined}
-                        onClick={() => { go(i); setMode("deck"); window.scrollTo({ top: 0 }); }}
-                        className={`card !rounded-[22px] relative w-full overflow-hidden text-left hover:bg-raised ${i === at ? "!border-ink/30" : ""}`}>
-                        <span className="relative flex min-h-[88px] items-center gap-4 px-3 py-3">
+                      <motion.button layoutId={c.key} transition={spring} type="button" data-testid="need-item"
+                        onClick={() => { go(i); show("deck"); }}
+                        className="card !rounded-[22px] relative w-full overflow-hidden text-left hover:bg-raised active:scale-[0.98] transition-transform duration-150">
+                        <span className="relative flex items-center gap-3.5 p-3">
                           {thumb
-                            ? <video src={`${thumb}#t=0.5`} muted playsInline preload="metadata" aria-hidden className="h-16 w-16 shrink-0 rounded-2xl object-cover bg-grey-tint" />
+                            ? <video src={`${thumb}#t=0.5`} muted playsInline preload="metadata" aria-hidden className="size-[76px] shrink-0 rounded-2xl object-cover bg-grey-tint" />
                             : still
-                              ? <img src={still} alt="" aria-hidden loading="lazy" className="h-16 w-16 shrink-0 rounded-2xl object-cover bg-grey-tint" />
-                              : <span aria-hidden className="h-16 w-16 shrink-0 rounded-2xl bg-grey-tint grid place-items-center font-display text-xl font-medium tabular-nums text-muted">{i + 1}</span>}
+                              ? <img src={still} alt="" aria-hidden loading="lazy" className="size-[76px] shrink-0 rounded-2xl object-cover bg-grey-tint" />
+                              : <span aria-hidden className="size-[76px] shrink-0 rounded-2xl bg-grey-tint" />}
                           <span className="min-w-0 flex-1">
-                            <span className="block text-lg font-semibold leading-tight">{cardTitle(c)}</span>
-                            <span className={`block text-base ${"text-muted"}`}>{cardSub(c)}</span>
+                            <span className="block text-sm font-semibold text-muted">Job {c.n} · {cardSub(c)}</span>
+                            <span className="mt-0.5 block text-lg font-semibold leading-tight">{c.need.title}</span>
+                            <span className="mt-1 flex items-center gap-1.5 text-base text-muted">
+                              {c.tool
+                                ? <><ToolLogo url={c.tool.url} className="size-4 rounded-[4px] bg-[#c8c9c4] p-[1.5px]" />Our pick: <strong className="font-semibold text-ink">{c.tool.name}</strong></>
+                                : "Not compared yet"}
+                            </span>
                           </span>
-                          <span className="shrink-0 pr-2 text-base font-semibold text-muted">Open</span>
+                          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-faint"><path d="M9 6l6 6-6 6" /></svg>
                         </span>
                       </motion.button>
                     </li>
                   );
                 })}
               </ol>
-            </section>
+              {!items.length && <p className="text-lg text-muted">No jobs yet. Tell us about your business and we will find them.</p>}
+            </div>
           ) : current ? (
             <section aria-label="Your cards" className="mt-4" onTouchStart={onTouchStart} onTouchMove={onTouchMove}>
               <div className="relative">
@@ -607,11 +621,12 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
                   </motion.article>
                 </AnimatePresence>
               </div>
-              <div className="mt-5 flex items-center gap-4 pr-32 sm:pr-0">
+              <div className="mt-9 flex items-center gap-4">
                 <button type="button" className="btn btn-secondary !min-h-11 !px-5" disabled={at === 0} onClick={() => go(at - 1)}>Back</button>
                 <p className="text-base font-semibold tabular-nums text-muted" aria-live="polite">{at + 1} of {cards.length}</p>
+                <button type="button" onClick={() => setSheet({ kind: "chat" })} className="btn btn-secondary !min-h-11 !px-4 ml-auto sm:hidden">{Icon.chat}Ask us</button>
               </div>
-              <p className="mt-3 text-sm text-faint pr-32 sm:hidden">Swipe left for the next card, right to go back.</p>
+              <p className="mt-3 text-sm text-faint sm:hidden">Swipe left for the next card, right to go back.</p>
               <p className="mt-3 text-sm text-faint text-center hidden sm:block">Use the left and right arrow keys to move between cards.</p>
             </section>
           ) : null}
@@ -628,7 +643,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
       </div>
 
       <button type="button" onClick={() => setSheet({ kind: "chat" })} aria-label="Ask us a question"
-        className="fixed bottom-5 right-5 z-40 flex h-14 items-center gap-2 rounded-[var(--btn-radius,999px)] bg-float border border-btn2-line px-5 text-base font-semibold text-ink shadow-[var(--shadow-pop,0_1px_2px_rgba(0,0,0,.05),0_12px_32px_rgba(17,18,20,.12))] hover:bg-grey-tint">
+        className={`fixed bottom-5 right-5 z-40 ${deckOnPhone ? "hidden sm:flex" : "flex"} h-14 items-center gap-2 rounded-[var(--btn-radius,999px)] bg-float border border-btn2-line px-5 text-base font-semibold text-ink shadow-[var(--shadow-pop,0_1px_2px_rgba(0,0,0,.05),0_12px_32px_rgba(17,18,20,.12))] hover:bg-grey-tint`}>
         {Icon.chat}<span>Ask us</span>
       </button>
 
@@ -666,9 +681,9 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         {sheet?.kind === "chat" && (
           <Sheet key="chat" title="Ask us anything" onClose={closeSheet} full>
             {live ? (
-              <div className="grid gap-4">
-                <TurnLog events={events} active={active} />
-                <ChatBox messages={bundle?.messages ?? []} suggestions={suggestions} onSend={send} disabled={offline} />
+              <div className="flex h-full flex-col gap-4">
+                <div className="shrink-0"><TurnLog events={events} active={active} /></div>
+                <ChatBox messages={bundle?.messages ?? []} suggestions={suggestions} onSend={send} disabled={offline} running={!!active} />
               </div>
             ) : (
               <div className="grid gap-4">
@@ -688,6 +703,55 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         )}
       </AnimatePresence>
     </MotionConfig>
+  );
+}
+
+/** The setup agent's cloud browser, live: TinyFish's read-only stream of the run, embedded as its docs show. */
+function LiveBrowser({ s }: { s: OwnerBundle["setups"][string] }) {
+  const name = toolById(s.tool_id)?.name ?? s.tool_id;
+  const url = s.streaming_url!;
+  return (
+    <figure className="overflow-hidden rounded-[var(--photo-radius)] border border-line bg-card">
+      <figcaption className="flex items-center justify-between gap-3 px-4 py-2.5">
+        <span className="flex min-w-0 items-center gap-2 font-semibold">
+          <span aria-hidden className="soft-pulse size-2.5 shrink-0 rounded-full bg-accent" />
+          <span className="truncate">Live: {name}</span>
+        </span>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-sm font-semibold">Open full screen</a>
+      </figcaption>
+      <iframe src={url} title={`${name} setup, live`} className="block aspect-[16/10] w-full border-0 bg-grey-tint" />
+    </figure>
+  );
+}
+
+/** On an example business: a recorded run of the setup agent (the sign-up email is blurred), and what happens in a live one. */
+function SetupReplay() {
+  const steps = [
+    "You say yes to the plan we show you. Nothing starts before that.",
+    "Our agent opens the tool's sign-up in its own cloud browser and fills in your shop's details, with a new inbox we made for it.",
+    "It stops at the human check and hands that step to you. We never get past one for you.",
+    "You get the login and a short list of what is next.",
+  ];
+  return (
+    <div>
+      <figure className="overflow-hidden rounded-[var(--photo-radius)] border border-line bg-white">
+        <figcaption className="flex items-center gap-2 border-b border-black/10 bg-[#f4f4f2] px-3.5 py-2 text-sm text-[#55575c]">
+          <span className="rounded-full bg-[#202226] px-2.5 py-0.5 font-semibold text-white">Recorded run</span>
+          <span className="truncate">app.chatling.ai/register</span>
+        </figcaption>
+        <video data-testid="setup-replay" src="/setup/chatling-signup.mp4" poster="/setup/chatling-signup.jpg" muted loop autoPlay playsInline preload="metadata"
+          aria-label="Our setup agent filling in a Chatling sign-up form, then stopping at the human check" className="block aspect-[8/9] w-full object-cover" />
+      </figure>
+      <p className="mt-4 text-lg leading-snug">Our setup agent signing a shop up for Chatling. In a live session you watch your own setup happen here, as it runs.</p>
+      <ol className="mt-4 grid gap-3">
+        {steps.map((t, i) => (
+          <li key={t} className="flex gap-3 text-base leading-snug">
+            <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-full bg-grey-tint font-display text-sm font-semibold tabular-nums">{i + 1}</span>
+            <span className="pt-0.5">{t}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 

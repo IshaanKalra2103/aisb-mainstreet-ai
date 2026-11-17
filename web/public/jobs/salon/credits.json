@@ -1,0 +1,22 @@
+{
+  "booking.jpg": {
+    "source_page": "https://salonstlouis.com/contact/",
+    "image_url": "https://salonstlouis.com/wp-content/uploads/2025/06/Book-Your-Hair-Salon-Spa-Appointment-in-St-Louis-MO.jpg",
+    "query": "salon receptionist appointment book hair salon front desk"
+  },
+  "reviews.jpg": {
+    "source_page": "https://www.withallo.com/blog/best-ai-receptionist-for-hair-salons",
+    "image_url": "https://allo-cms-media-production.s3.eu-west-3.amazonaws.com/media/best-ai-receptionist-for-hair-salons--hero--salon-owner-texting-1920x1288.webp",
+    "query": "hair salon owner looking at phone at reception desk"
+  },
+  "marketing-msgs.jpg": {
+    "source_page": "https://www.ripeinsurance.co.uk/hair-and-beauty-insurance/blog/salon-etiquette-the-uks-awkward-hair-salon-misunderstandings/",
+    "image_url": "https://www.ripeinsurance.co.uk/media/1d0nl33f/salon-etiqette.webp",
+    "query": "hairstylist taking photo of finished hair client with smartphone salon"
+  },
+  "social-posts.jpg": {
+    "source_page": "https://www.upworthy.com/pn-hairdresser-spots-pregnancy-hair/",
+    "image_url": "https://www.upworthy.com/wp-content/uploads/sites/2/2026/04/Hairstyle-Preview.png?w=1440",
+    "query": "hairstylist taking photo of finished hair client with smartphone salon"
+  }
+}

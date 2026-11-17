@@ -4,8 +4,8 @@ test("demo flow", async ({ page }) => {
   await page.goto("/demo");
   await page.getByRole("link", { name: /Bean & Brick Coffee/ }).click();
   await expect(page).toHaveURL(/\/b\/demo-coffee/);
-  // The owner page is a deck of cards; "See all" shows every job at once.
-  await page.getByRole("button", { name: "See all" }).click();
+  // The owner page is a deck of cards; "List" shows every job at once.
+  await page.getByRole("button", { name: "List", exact: true }).click();
   expect(await page.getByTestId("need-item").count()).toBeGreaterThanOrEqual(3);
   await page.getByTestId("need-item").first().click();
   await page.getByRole("button", { name: "Compare tools" }).click();
@@ -132,8 +132,7 @@ test("a live job with no pick yet offers to find one", async ({ page }) => {
     if (p === OWNER) return { body: { ...BUNDLE, profile, needs, active_turn: null } };
   });
   await page.goto("/b/o_test000001");
-  await expect(page.getByRole("heading", { name: "Bean & Brick Coffee", level: 2 })).toBeVisible();
-  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("heading", { name: "Bean & Brick Coffee", level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Answer questions on your website" })).toBeVisible();
   await expect(page.getByText("Want our pick for this job?")).toBeVisible();
   await expect(page.getByText(/have not compared tools/)).toHaveCount(0);

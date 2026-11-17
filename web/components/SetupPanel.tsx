@@ -54,7 +54,8 @@ export function Approval({ ownerId, a, onTurn }: { ownerId: string; a: OwnerBund
   );
 }
 
-export function SetupRecordView({ ownerId, s, live }: { ownerId: string; s: OwnerBundle["setups"][string]; live: boolean }) {
+/** One setup and where it stands. `liveLink` adds a link to the agent's live browser (the owner page embeds it instead). */
+export function SetupRecordView({ ownerId, s, live, liveLink = true }: { ownerId: string; s: OwnerBundle["setups"][string]; live: boolean; liveLink?: boolean }) {
   const [pw, setPw] = useState<string | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const name = toolById(s.tool_id)?.name ?? s.tool_id;
@@ -63,7 +64,7 @@ export function SetupRecordView({ ownerId, s, live }: { ownerId: string; s: Owne
       <p className="eyebrow">{name}</p>
       <h3 className="text-xl font-semibold mt-1">{STATUS_TEXT[s.status] ?? s.status}</h3>
       {s.status === "needs_owner" && s.handoff_reason && <p className="mt-2">{s.handoff_reason}</p>}
-      {s.streaming_url?.startsWith("http") && s.status !== "done" && (
+      {liveLink && s.streaming_url?.startsWith("http") && s.status !== "done" && (
         <p className="mt-2"><a href={s.streaming_url} target="_blank" rel="noopener noreferrer">Watch live</a></p>
       )}
       {(s.login_url || s.username) && (

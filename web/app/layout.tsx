@@ -5,6 +5,7 @@ import "./globals.css";
 import "./graphite.css";
 import { APP_NAME, TAGLINE } from "@/lib/brand";
 import NavLinks from "@/components/NavLinks";
+import { SITE_URL, ogVideo } from "@/lib/ogVideo";
 
 const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"] });
 const source = Source_Sans_3({ variable: "--font-source", subsets: ["latin"] });
@@ -12,10 +13,13 @@ const source = Source_Sans_3({ variable: "--font-source", subsets: ["latin"] });
 export const metadata: Metadata = {
   title: { default: APP_NAME, template: `%s | ${APP_NAME}` },
   description: TAGLINE,
-  openGraph: { title: APP_NAME, description: TAGLINE, siteName: APP_NAME, type: "website" },
+  openGraph: {
+    title: APP_NAME, description: TAGLINE, siteName: APP_NAME, type: "video.other",
+    images: [{ url: "/og/home.jpg", width: 1200, height: 630 }], videos: ogVideo("home"),
+  },
   // Link cards (iMessage, Slack) show the big image only for summary_large_image; og:image needs an absolute URL.
   twitter: { card: "summary_large_image" },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://mainstreet-ai-five.vercel.app"),
+  metadataBase: new URL(SITE_URL),
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
