@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test("production intake: a real agent turn reaches the owner page", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/start");
   await expect(page.getByText(/offline/i)).toHaveCount(0);
   await page.getByLabel(/Paste your website/).fill(process.env.BIZ_URL ?? "https://mainstreet-demo-sites.vercel.app/diner/");
   await page.getByRole("button", { name: "Read my site" }).click();

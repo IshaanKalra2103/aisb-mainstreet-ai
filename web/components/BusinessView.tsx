@@ -384,7 +384,6 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   const profile = bundle?.profile ?? null;
   const items = bundle?.needs?.items ?? [];
   const hours = Math.round(items.reduce((s, n) => s + n.est_hours_saved_week, 0));
-  const lastReply = [...(bundle?.messages ?? [])].reverse().find((m) => m.role === "agent");
   const lastEvent = events[events.length - 1];
   const statusLine = [...events].reverse().find((e) => e.type === "status" || e.type === "queued" || e.type === "files");
   // Each step the agent has reached, once, in order: the wait screen ticks them off.
@@ -723,14 +722,6 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
             ) : null}
           </LayoutGroup>
 
-          {lastReply && !active && live && (
-            <ul aria-label="Our latest reply" className="mt-5">
-              <li className="card !rounded-2xl rounded-tl-md px-4 py-3">
-                <span className="block text-sm font-semibold text-muted">MainStreet:</span>
-                <button type="button" onClick={() => setSheet({ kind: "chat" })} className="block w-full text-left text-lg line-clamp-4 whitespace-pre-line">{lastReply.text}</button>
-              </li>
-            </ul>
-          )}
         </div>
       </div>
 

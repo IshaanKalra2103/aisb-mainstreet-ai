@@ -21,8 +21,21 @@ test("demo flow", async ({ page }) => {
   await expect(page.getByRole("article", { name: /^Social posts and specials, / }).locator("video")).toBeAttached();
 });
 
-test("offline intake", async ({ page }) => {
+test("the home page has two doors: Try it with your shop goes to /start, which asks for a site or what you sell", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByLabel(/Paste your website/)).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Text our iMessage agent" })).toHaveAttribute("href", /^sms:/);
+  await page.getByRole("link", { name: "Try it with your shop" }).click();
+  await expect(page).toHaveURL(/\/start$/);
+  await expect(page.getByLabel(/Paste your website/)).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Salon" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next" })).toHaveCount(0);
+  await page.getByRole("radio", { name: "Salon" }).click();
+  await expect(page.getByRole("button", { name: "Next" })).toBeVisible();
+});
+
+test("offline intake", async ({ page }) => {
+  await page.goto("/start");
   await expect(
     page.getByText("Our live agent is resting right now. You can still explore five example businesses and the full tool catalog."),
   ).toBeVisible();
@@ -163,7 +176,7 @@ test("intake shows a 429 detail and retries instead of going to the demo", async
     if (p === "/api/health") return { body: { ok: true } };
     if (m === "POST" && p === "/api/owners") { owners += 1; return { status: 429, body: { detail: capped } }; }
   });
-  await page.goto("/");
+  await page.goto("/start");
   await page.getByLabel(/Paste your website/).fill("a coffee shop in Baltimore");
   await page.getByRole("button", { name: "Read my site" }).click();
   await expect(page.getByText(capped)).toBeVisible();
@@ -179,7 +192,7 @@ test("intake reuses the new owner when the first turn is refused", async ({ page
     if (m === "POST" && p === "/api/owners") { owners += 1; return { body: { owner_id: "o_test000001" } }; }
     if (m === "POST" && p === "/api/owners/o_test000001/turns") { turns += 1; return { status: 429, body: { detail: BUSY_ALL } }; }
   });
-  await page.goto("/");
+  await page.goto("/start");
   await page.getByLabel(/Paste your website/).fill("a coffee shop in Baltimore");
   await page.getByRole("button", { name: "Read my site" }).click();
   await expect(page.getByText(BUSY_ALL)).toBeVisible();
@@ -192,7 +205,7 @@ test("a slow health check (3 s) does not mark the site offline", async ({ page }
   await mockApi(page, (m, p) => {
     if (p === "/api/health") return { body: { ok: true }, delayMs: 3000 };
   });
-  await page.goto("/");
+  await page.goto("/start");
   await page.waitForTimeout(4500);
   await expect(page.getByText(/Our live agent is resting/)).toHaveCount(0);
 });

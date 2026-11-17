@@ -1,8 +1,7 @@
 import Link from "next/link";
 import HeroPhone from "@/components/HeroPhone";
-import Intake from "@/components/Intake";
 import Marquee from "@/components/Marquee";
-import TextMe from "@/components/TextMe";
+import { ObIcon } from "@/components/obIcons";
 import ShopTile from "@/components/ShopTile";
 import { DEMO_BUSINESSES } from "@/data/demo";
 import { IMESSAGE_DISPLAY, smsHref } from "@/lib/brand";
@@ -10,23 +9,24 @@ import { IMESSAGE_DISPLAY, smsHref } from "@/lib/brand";
 export default function Home() {
   return (
     <>
-      {/* The first screen (sheet panel A): the line that says the whole flow, one lime action, and the phone showing the first texts. */}
+      {/* The first screen (sheet panel A): the line that says the whole flow, one lime action (to /start) beside the iMessage door, and the phone showing the first texts. */}
       <section className="ob-hero">
         <div className="ob-street" aria-hidden><img src="/hero/street.jpg" alt="" /></div>
-        <div className="mx-auto max-w-5xl px-4 pt-12 pb-10 sm:pt-20 lg:grid lg:grid-cols-[minmax(0,560px)_1fr] lg:items-start lg:gap-8 lg:pt-14 lg:pb-6">
+        <div className="mx-auto max-w-5xl px-4 pt-12 pb-10 sm:pt-20 lg:grid lg:grid-cols-[minmax(0,560px)_1fr] lg:items-center lg:gap-8 lg:pt-14 lg:pb-6">
           <div className="mx-auto max-w-[620px] lg:mx-0">
-            <div className="ob-hello"><img src="/brand/mark.jpg" alt="" /><span>Hi, I&apos;m MainStreet.</span></div>
-            <h1 className="mt-6 text-[2.6rem] sm:text-6xl leading-[1.04] text-balance">
+            <h1 className="text-[2.6rem] sm:text-6xl leading-[1.04] text-balance">
               See which AI tools can save your business time.
             </h1>
             <p className="mt-5 text-xl text-soft">
               We read your website, pick the jobs AI can take off your plate, and compare tools we have checked. Nothing gets set up until you say yes.
             </p>
-            <Intake />
-            {/* The other door: the same assistant over iMessage. */}
-            <p className="mt-5 text-lg text-soft">Rather text? <a href={smsHref()} className="font-semibold">Text us at {IMESSAGE_DISPLAY}</a> on iMessage.</p>
-            {/* aa's "Text me" form, folded to a link so the hero keeps one lime action until the owner asks for it. */}
-            <TextMe start="button" />
+            {/* Two doors: try it on the web (the site box and the what-you-sell tiles are on /start), or text the same agent. */}
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href="/start" className="btn btn-primary ob-cta">Try it with your shop</Link>
+              <a href={smsHref()} title={`iMessage ${IMESSAGE_DISPLAY}`} className="btn btn-secondary ob-cta">
+                <ObIcon name="message" size={22} />Text our iMessage agent
+              </a>
+            </div>
           </div>
           <div className="hidden lg:block"><HeroPhone /></div>
         </div>
