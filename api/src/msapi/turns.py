@@ -4,10 +4,11 @@ import json
 import logging
 import re
 import secrets
+import time
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import AsyncIterator
+from typing import AsyncIterator, Callable
 
 from .runner import Runner
 from .settings import Settings
@@ -108,6 +109,7 @@ class Turn:
     started: bool = False
     done: bool = False
     changed: asyncio.Event = field(default_factory=asyncio.Event)
+    created: float = field(default_factory=time.time)
 
 
 class TurnManager:
@@ -118,6 +120,8 @@ class TurnManager:
         self.turns: dict[str, Turn] = {}
         self.tasks: set[asyncio.Task] = set()
         self.counts: dict[tuple[str, str], int] = {}
+        # Called with (turn, final event) when a live turn ends; iMessage uses it to text the owner first.
+        self.listeners: list[Callable[[Turn, dict], None]] = []
 
     def _file(self, turn: Turn, suffix: str = ".jsonl") -> Path:
         return self.ws.owner_dir(turn.owner_id) / "turns" / f"{turn.id}{suffix}"
@@ -133,6 +137,14 @@ class TurnManager:
             turn.done = True
         turn.changed.set()
         turn.changed = asyncio.Event()
+
+    def _finish(self, turn: Turn, ev: dict) -> None:
+        self._emit(turn, ev)
+        for fn in self.listeners:
+            try:
+                fn(turn, {k: v for k, v in ev.items() if k != "detail"})
+            except Exception:
+                log.exception("turn %s listener failed", turn.id)
 
     def _raw(self, turn: Turn, ev: dict) -> None:
         f = self._file(turn, ".raw.jsonl")
@@ -197,11 +209,11 @@ class TurnManager:
                     terminal = terminal or {"type": "error", "message": FAILED, "detail": "no result event"}
                     if terminal["type"] == "done":
                         self.ws.add_message(oid, "agent", terminal["reply"], turn.channel)
-                    self._emit(turn, terminal)
+                    self._finish(turn, terminal)
         except Exception as e:  # never leave a turn hanging
             log.exception("turn %s failed", turn.id)
             if not turn.done:
-                self._emit(turn, {"type": "error", "message": FAILED, "detail": repr(e)[:500]})
+                self._finish(turn, {"type": "error", "message": FAILED, "detail": repr(e)[:500]})
 
     def _load(self, turn_id: str) -> Turn:
         """A turn from before a restart: replay its file; if it never finished, it never will."""

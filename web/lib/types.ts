@@ -151,6 +151,8 @@ export interface OwnerBundle {
   approvals: Approval[];
   messages: Message[];
   active_turn?: string | null;
+  /** A phone texts as this shop (iMessage), so what happens here is texted to it too. */
+  phone_linked?: boolean;
 }
 export type TurnEvent =
   | { type: "queued"; position: number }

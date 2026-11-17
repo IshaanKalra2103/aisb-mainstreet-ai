@@ -13,6 +13,12 @@ For each incoming text message:
 5. On any other error (401, 5xx, timeout, API down, bad response), it sends "Sorry, something broke on our side. Try again in a minute."
 6. When the API asks for the share page (`/b/o_.../shop`), the relay sends iMessage's own "share your location" request instead (Photon's Find My kit, `src/location.ts`). It checks every 10 s, for up to 15 minutes, whether the owner has shared. Once they have, it posts the share page's turn text (`Here is my shop. Location: <lat>, <lon> (within <m> m). Link: none`) for that owner and texts back the agent's replies. If the request can't be sent (for example, the owner texts from an email address the Photon line may not reach), the share page card goes out as before. At most one request per owner goes out in 15 minutes.
 7. When the agent has asked to set up a tool (a pending approval), the API adds `poll: {question, options}` to its reply, once per approval: "Set up Chatling for you?" with "Yes, set it up" and "Not now". The relay sends it last, as a native iMessage poll. A vote comes back as a `poll_option` message; the relay posts `{from_hash, poll, option}` to `/api/imessage/vote`, and the API decides that approval the way the page's buttons do and runs the turn, so the replies come back as texts. A vote can only reach an approval of the voter's own owner; a vote on a question that is already answered gets "That question is already answered. Your page has the latest." Taking a vote back does nothing.
+8. Texting first. Something can happen for a texting owner without them texting: a yes on the website, or a setup that finishes. The API puts these texts in an outbox, and the relay sends them into that phone's thread the same way it sends a reply (texts 3 s apart, link cards, video, poll last). What goes in the outbox:
+   - On a website yes: "Got your yes on the website. Setting up <tool> now. I'll text you when it's done, or if I need you for a step." It goes in at once.
+   - When any website turn of that owner ends (the setup turn included): its result, which can be "done" or "need you for one step".
+   - When an iMessage turn outlives the relay's wait (the reply then says "Still working on that. I'll text you when it's done."): its result.
+
+   The relay polls `GET /api/imessage/outbox?after=<cursor>&epoch=<api start id>` (with `X-Relay-Secret`) every 3 s. It only polls for 30 min after a phone last texted or voted. It keeps polling past that while the API says a texting owner has a turn running (`busy`). On GCP every poll through the waker can start the agent VM, so it must not poll all day. The first poll after a start or a quiet spell only reads the cursor, so old entries are never replayed. The relay remembers each phone's thread from its texts, in memory: after a relay restart, a phone gets pushes again once it texts. Turns started by a text are not pushed, because their reply already goes out.
 
 It ignores its own outgoing messages, non-text messages (attachments, reactions and so on) and empty texts. Texts longer than 2000 characters are cut to 2000, the API's limit. A typing indicator shows while the agent works, where Photon supports it.
 
@@ -26,6 +32,7 @@ The logs carry only the first 12 characters of the sender hash, the outcome and 
 - `demo_rich.mjs`: sends the example business Bean & Brick Coffee to one phone as iMessage UI: a plan card and a job card with photos, a yes/no poll and a "done" text with confetti (`node --env-file=.env demo_rich.mjs --to <phone>`). It only sends; a vote on its poll is not acted on.
 - `locate.mjs`: the same request and read from the command line, for demos (`node --env-file=.env locate.mjs request|get <phone>`). It prints one JSON line and never the address.
 - `test/relay.test.ts`: unit tests with a fake `fetch`, `send` and `sleep`.
+- `test/push.test.ts`: unit tests for the outbox poller (`Outbox` in `src/relay.ts`) with a fake clock.
 - `test/api.test.ts`: tests against a real local API running the fake agent. They are skipped unless `RELAY_TEST_API_URL` is set.
 - `send_rich.mjs`, `send_image.mjs`, `connect_paperclip.py`: left over from the earlier GTM project, and not used by the relay.
 
@@ -58,3 +65,5 @@ cd imessage && RELAY_TEST_API_URL=http://127.0.0.1:8788 RELAY_TEST_SECRET=test n
 - `AGENT_API_URL`: the agent API. The default is `http://127.0.0.1:8787`.
 - `MS_RELAY_SECRET`: must match the API's `MS_RELAY_SECRET`. If it doesn't, the API answers 401 and owners get the sorry text.
 - `RELAY_NATIVE_LOCATION=0`: turns the native location request off, so the relay sends the share page card again.
+- `RELAY_PUSH=0`: turns texting first off (no outbox polling).
+- `RELAY_PUSH_WINDOW_MS` (default 1800000, 30 min) and `RELAY_PUSH_INTERVAL_MS` (default 3000): how long after a phone's last text the relay keeps polling the outbox, and how often.

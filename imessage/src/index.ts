@@ -11,7 +11,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Spectrum, app as appCard, attachment, poll, richlink } from "spectrum-ts";
 import { imessage } from "@spectrum-ts/imessage";
-import { handleMessage, timeoutFromEnv } from "./relay.ts";
+import {
+  handleMessage, hashSender, Outbox, PUSH_INTERVAL_MS, PUSH_WINDOW_MS, relayable, type RelayDeps, timeoutFromEnv, votable,
+} from "./relay.ts";
 import { locationKit } from "./location.ts";
 
 const apiUrl = process.env.AGENT_API_URL || "http://127.0.0.1:8787";
@@ -47,11 +49,39 @@ process.on("SIGTERM", () => void shutdown("SIGTERM"));
 // Native "share your location" card in place of the share page card. RELAY_NATIVE_LOCATION=0 turns it off.
 const location = process.env.RELAY_NATIVE_LOCATION === "0" ? null : locationKit(projectId, projectSecret);
 
-console.log(`[relay] listening, agent API ${apiUrl}, native location ${location ? "on" : "off"}`);
+// Texting first (website yes, finished setups): the thread of each phone that texted since start, by sender hash.
+// Lost on restart until that phone texts again. RELAY_PUSH=0 turns it off; RELAY_PUSH_WINDOW_MS is how long after a
+// phone's last text we keep polling (every poll through the GCP waker can start the agent VM).
+const threads = new Map<string, RelayDeps>();
+const outbox = process.env.RELAY_PUSH === "0" ? null : new Outbox({
+  apiUrl,
+  secret,
+  fetch: (url, init) => fetch(url, init),
+  thread: (h) => threads.get(h),
+  intervalMs: timeoutFromEnv(process.env.RELAY_PUSH_INTERVAL_MS) ?? PUSH_INTERVAL_MS,
+  windowMs: timeoutFromEnv(process.env.RELAY_PUSH_WINDOW_MS) ?? PUSH_WINDOW_MS,
+});
+if (outbox) void outbox.run();
+
+console.log(`[relay] listening, agent API ${apiUrl}, native location ${location ? "on" : "off"}, push ${outbox ? "on" : "off"}`);
 
 // Each message is handled on its own so a slow turn (up to ~280 s) never blocks other senders.
 for await (const [space, message] of app.messages) {
-  void handleMessage(message, {
+  const deps = threadDeps(space);
+  const who = relayable(message)?.senderId ?? votable(message)?.senderId;
+  if (who) {
+    threads.set(hashSender(who), deps);
+    outbox?.touch();
+  }
+  void handleMessage(message, deps)
+    .catch((e) => console.error(`[relay] handler crashed: ${e instanceof Error ? e.name : typeof e}`));
+}
+console.error("[relay] Photon message stream ended");
+process.exit(1);
+
+/** Everything the relay needs to text back into one thread. */
+function threadDeps(space: any): RelayDeps {
+  return {
     apiUrl,
     secret,
     timeoutMs,
@@ -76,7 +106,5 @@ for await (const [space, message] of app.messages) {
       waitLocation: (who: string) => location.wait(who),
       lateLocation: (who: string) => location.late(who),
     }),
-  }).catch((e) => console.error(`[relay] handler crashed: ${e instanceof Error ? e.name : typeof e}`));
+  };
 }
-console.error("[relay] Photon message stream ended");
-process.exit(1);

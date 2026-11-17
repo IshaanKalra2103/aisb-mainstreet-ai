@@ -12,6 +12,7 @@ import { Approval, HELPERS, SetupRecordView } from "./SetupPanel";
 import OfflineBanner from "./OfflineBanner";
 import TurnLog from "./TurnLog";
 import ChatBox from "./ChatBox";
+import TextUs from "./TextUs";
 import { jobPhoto, placePhoto, siteLogo } from "@/lib/places";
 import ToolLogo from "./ToolLogo";
 import Sheet from "./Sheet";
@@ -302,6 +303,14 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
 
   const pending = bundle?.approvals.filter((a) => a.status === "pending") ?? [];
   const records = bundle ? Object.values(bundle.setups) : [];
+  // Setups the owner said "not now" to and can still say yes to: the latest per tool, while that tool has no other
+  // open or approved ask and no setup record.
+  const declined = (() => {
+    const aps = bundle?.approvals ?? [];
+    const latest = new Map<string, (typeof aps)[number]>();
+    for (const a of aps) if (a.status === "rejected") latest.set(a.tool_id, a); // the API sorts them oldest first
+    return [...latest.values()].filter((a) => !bundle?.setups[a.tool_id] && !aps.some((b) => b.tool_id === a.tool_id && b.status !== "rejected"));
+  })();
 
   // The live view of each setup our agent is running in its cloud browser (TinyFish's read-only stream).
   const streams = records.filter((s) => s.streaming_url?.startsWith("http") && (s.status === "running" || s.status === "needs_owner"));
@@ -340,8 +349,9 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
     const top = tabsRef.current?.getBoundingClientRect().top;
     if (top !== undefined && top < 0) tabsRef.current?.scrollIntoView({ block: "start" });
   };
-  const setItUp = async () => {
-    if (!live || pending.length) { show("setup"); return; }
+  const setItUp = async (toolId?: string) => {
+    // A pending ask, or a "not now" for this job's tool that can still become a yes, is on the Setup tab.
+    if (!live || pending.length || declined.some((a) => a.tool_id === toolId)) { show("setup"); return; }
     setBusy(true); setActionError("");
     try { await send("Set it up for me"); show("setup"); }
     catch (e) { setActionError(e instanceof ApiError ? e.message : "We could not reach our agent just now. Please try again in a minute."); }
@@ -450,7 +460,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
           </div>
           <div className="shrink-0 flex gap-2 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
             <BigButton icon={Icon.x} label="Not now" onClick={() => (at < cards.length - 1 ? go(at + 1) : show("setup"))} />
-            <BigButton icon={Icon.check} label={busy ? "One moment" : "Set it up"} primary disabled={busy || offline} onClick={setItUp} />
+            <BigButton icon={Icon.check} label={busy ? "One moment" : "Set it up"} primary disabled={busy || offline} onClick={() => setItUp(tool?.id)} />
           </div>
         </div>
       );
@@ -494,9 +504,10 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
           <>
             {streams.map((s) => <LiveBrowser key={s.tool_id} s={s} />)}
             {pending.length > 0 && <p className="eyebrow">Waiting for your OK</p>}
-            {pending.map((a) => <Approval key={a.id} ownerId={ownerId} a={a} onTurn={follow} />)}
+            {pending.map((a) => <Approval key={`${a.id}-${a.status}`} ownerId={ownerId} a={a} onTurn={follow} onChange={refresh} />)}
+            {declined.map((a) => <Approval key={`${a.id}-${a.status}`} ownerId={ownerId} a={a} onTurn={follow} onChange={refresh} />)}
             {records.map((s) => <SetupRecordView key={s.tool_id} ownerId={ownerId} s={s} live={live} liveLink={false} />)}
-            {!pending.length && !records.length && !active && (
+            {!pending.length && !declined.length && !records.length && !active && (
               <div>
                 <h3 className="text-[1.6rem] font-semibold leading-tight">Nothing happens until you say yes</h3>
                 <p className="mt-2 text-lg text-muted">Pick a job and press Set it up. We show you exactly what we would do and wait for your OK. Then you watch our agent set it up here, live.</p>
@@ -570,6 +581,9 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
               <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums">{catalog.tools.length}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">tools checked</span></li>
             </ul>
           )}
+
+          {/* The other door: carry on in iMessage as this same shop. */}
+          {live && bundle && <TextUs ownerId={ownerId} linked={!!bundle.phone_linked} />}
         </div>
 
         {/* Its jobs: the right column from 1280 px. */}

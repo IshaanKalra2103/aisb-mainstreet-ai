@@ -2,6 +2,7 @@ import Link from "next/link";
 import Intake from "@/components/Intake";
 import ShopTile from "@/components/ShopTile";
 import { DEMO_BUSINESSES } from "@/data/demo";
+import { IMESSAGE_DISPLAY, smsHref } from "@/lib/brand";
 
 const HERO = ["coffee", "salon", "diner"].map((slug) => DEMO_BUSINESSES.find((b) => b.slug === slug)!).filter(Boolean);
 
@@ -17,6 +18,8 @@ export default function Home() {
           We read your website, pick the jobs AI can take off your plate, and compare tools we have checked. Nothing gets set up until you say yes.
         </p>
         <Intake />
+        {/* The other door: the same assistant over iMessage. */}
+        <p className="mt-5 text-lg text-soft">Rather text? <a href={smsHref()} className="font-semibold">Text us at {IMESSAGE_DISPLAY}</a> on iMessage.</p>
         </div>
         {/* Desktop: the example shops sit beside the form. Phones get the strip below. */}
         <ul aria-label="Example businesses" className="hidden lg:grid grid-cols-2 gap-4 pt-2">

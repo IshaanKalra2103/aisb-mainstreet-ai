@@ -10,6 +10,7 @@ from mstools.ws import redact
 
 OWNER_RE = re.compile(r"^o_[0-9a-f]{10}$")
 TOOL_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # shop codes: no I, L, O, 0 or 1 to misread
 
 
 class NotFound(Exception):
@@ -101,21 +102,25 @@ class Workspaces:
         return [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
 
     # approvals: decided only here, never by the agent
-    def pending_approval(self, owner_id: str, approval_id: str) -> dict:
-        """The approval if it is still pending. Raises NotFound, or ValueError if it was already decided."""
+    def pending_approval(self, owner_id: str, approval_id: str, decision: str | None = None) -> dict:
+        """The approval if `decision` can still be made on it: any answer while it is pending, and a yes after a
+        "not now" (the owner changed their mind). A yes is final. Raises NotFound, or ValueError(status) otherwise."""
         if not re.fullmatch(r"ap_[A-Za-z0-9]+", approval_id or ""):
             raise NotFound(approval_id)
         ap = _read(self.require(owner_id) / "approvals" / f"{approval_id}.json")
         if not ap:
             raise NotFound(approval_id)
         prior = _read(self.decisions_dir(owner_id) / f"{approval_id}.json")
+        status = (prior or ap).get("status")
+        if decision == "approve" and status == "rejected":
+            return ap
         if prior or ap.get("status") != "pending":
-            raise ValueError((prior or ap).get("status"))
+            raise ValueError(status)
         return ap
 
     def decide(self, owner_id: str, approval_id: str, decision: str) -> dict:
-        """Flip a pending approval. Raises NotFound, or ValueError if it was already decided."""
-        ap = self.pending_approval(owner_id, approval_id)
+        """Answer an approval (see pending_approval). Raises NotFound, or ValueError if that answer can't be made."""
+        ap = self.pending_approval(owner_id, approval_id, decision)
         p = self.owner_dir(owner_id) / "approvals" / f"{approval_id}.json"
         ap = {**ap, "status": "approved" if decision == "approve" else "rejected", "decided_at": now()}
         _write(self.decisions_dir(owner_id) / f"{approval_id}.json",
@@ -178,6 +183,40 @@ class Workspaces:
             raise NotFound(name)
         return p
 
+    # Shop codes: an owner on the website texts theirs to the iMessage line, and that phone joins the same shop.
+    def link_code(self, owner_id: str) -> str:
+        """The owner's shop code, made on first ask and kept."""
+        d = self.require(owner_id)
+        rec = _read(d / "link.json") or {}
+        if rec.get("code"):
+            return rec["code"]
+        codes = _read(self.root / "_codes.json") or {}
+        code = "".join(secrets.choice(CODE_CHARS) for _ in range(6))
+        while code in codes:
+            code = "".join(secrets.choice(CODE_CHARS) for _ in range(6))
+        codes[code] = owner_id
+        _write(self.root / "_codes.json", codes, mode=0o600)
+        _write(d / "link.json", {"code": code})
+        return code
+
+    def owner_in_text(self, text: str) -> str | None:
+        """The shop a text points at: its shop code, or its page link (/b/o_...). None when it names no shop."""
+        m = re.search(r"/b/(o_[0-9a-f]{10})(?![0-9a-f])", text or "")
+        if m and self.exists(m[1]):
+            return m[1]
+        codes = _read(self.root / "_codes.json") or {}
+        for tok in re.findall(r"(?<![A-Za-z0-9])[A-Za-z0-9]{6}(?![A-Za-z0-9])", text or ""):
+            oid = codes.get(tok.upper())
+            if oid and self.exists(oid):
+                return oid
+        return None
+
+    def link_phone(self, from_hash: str, owner_id: str) -> None:
+        """From now on this phone texts as `owner_id`."""
+        self.require(owner_id)
+        p = self.root / "_phones.json"
+        _write(p, {**(_read(p) or {}), from_hash: owner_id}, mode=0o600)
+
     # iMessage: the relay sends a hash of the phone number, never the number
     def owner_for_phone(self, from_hash: str) -> str:
         p = self.root / "_phones.json"
@@ -189,3 +228,10 @@ class Workspaces:
         phones[from_hash] = oid
         _write(p, phones, mode=0o600)
         return oid
+
+    def phones_for_owner(self, owner_id: str) -> list[str]:
+        """The sender hashes that text as this owner (iMessage pushes go to these)."""
+        return [h for h, o in (_read(self.root / "_phones.json") or {}).items() if o == owner_id]
+
+    def phone_owners(self) -> set[str]:
+        return set((_read(self.root / "_phones.json") or {}).values())

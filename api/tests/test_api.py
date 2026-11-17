@@ -474,7 +474,7 @@ async def test_imessage_vote_not_now_rejects(make_client, settings):
     oid = app.state.ws.owner_for_phone(HASH)
     write_approval(settings, oid)
     r = await c.post("/api/imessage/vote", json={"from_hash": HASH, "poll": "Set up chat-a for you?", "option": NO})
-    assert r.status_code == 200 and "Owner rejected approval ap_1" in runner.calls[0]["prompt"]
+    assert r.status_code == 200 and r.json()["replies"] == [NOT_NOW] and runner.calls == []  # no turn for a no
     assert json.loads((Workspaces(settings.workspaces).owner_dir(oid) / "approvals" / "ap_1.json").read_text())["status"] == "rejected"
 
 
@@ -512,3 +512,4 @@ async def test_imessage_vote_needs_the_relay_secret_and_a_known_option(make_clie
 
 
 CLOSED = "That question is already answered. Your page has the latest."
+NOT_NOW = "No problem, nothing gets set up. If you change your mind, tap Yes, set it up."

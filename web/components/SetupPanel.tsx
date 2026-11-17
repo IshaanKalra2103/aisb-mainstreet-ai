@@ -19,8 +19,15 @@ const STATUS_TEXT: Record<string, string> = {
   failed: "This did not work",
 };
 
-export function Approval({ ownerId, a, onTurn }: { ownerId: string; a: OwnerBundle["approvals"][number]; onTurn: (id: string) => void }) {
-  const [state, setState] = useState<"idle" | "busy" | "sent" | "already" | "error">("idle");
+/**
+ * The owner's yes or no on a setup. "Not now" answers at once and stays changeable: a declined approval shows
+ * "Changed your mind?" with the yes button (the same works from the iMessage poll). A yes is final.
+ * `onChange` reloads the page's records after a "not now" (a yes starts a turn, which `onTurn` follows).
+ */
+export function Approval({ ownerId, a, onTurn, onChange }: {
+  ownerId: string; a: OwnerBundle["approvals"][number]; onTurn: (id: string) => void; onChange?: () => void;
+}) {
+  const [state, setState] = useState<"idle" | "busy" | "sent" | "declined" | "already" | "error">(a.status === "rejected" ? "declined" : "idle");
   const [already, setAlready] = useState("");
   const [problem, setProblem] = useState("");
   const name = toolById(a.tool_id)?.name ?? a.tool_id;
@@ -32,21 +39,25 @@ export function Approval({ ownerId, a, onTurn }: { ownerId: string; a: OwnerBund
         setAlready(/approved/i.test(r.already) ? "You already said yes to this." : /rejected/i.test(r.already) ? "You already said not now to this." : "You already answered this.");
         setState("already");
       }
-      else { setState("sent"); if (r.turn_id) onTurn(r.turn_id); }
+      else if (r.turn_id) { setState("sent"); onTurn(r.turn_id); }
+      else { setState("declined"); onChange?.(); }
     } catch (e) {
-      // A 429 ("still working on your last message") leaves the approval pending, so the buttons stay usable.
+      // A 429 ("still working on your last message") leaves the approval as it was, so the buttons stay usable.
       setProblem(e instanceof ApiError ? e.message : "That did not go through. Please try again in a minute.");
-      setState("error");
+      setState(a.status === "rejected" ? "declined" : "error");
     }
   };
+  const declined = state === "declined";
+  const open = state === "idle" || state === "error" || declined;
   return (
     <div className="rounded-2xl p-5 bg-raised border border-line">
-      <h3 className="text-xl font-semibold">Ready to set up {name}</h3>
-      <p className="mt-2 text-muted">{a.summary}</p>
+      <h3 className="text-xl font-semibold">{declined ? `Not now for ${name}` : `Ready to set up ${name}`}</h3>
+      <p className="mt-2 text-muted">{declined ? "Nothing gets set up. Changed your mind? Say yes and we start." : a.summary}</p>
       <div className="mt-4 flex flex-wrap gap-3">
-        <button className="btn btn-primary" disabled={state !== "idle" && state !== "error"} onClick={() => go("approve")}>Yes, set it up</button>
-        <button className="btn btn-secondary" disabled={state !== "idle" && state !== "error"} onClick={() => go("reject")}>Not now</button>
+        <button className="btn btn-primary" disabled={!open} onClick={() => go("approve")}>Yes, set it up</button>
+        {!declined && <button className="btn btn-secondary" disabled={!open} onClick={() => go("reject")}>Not now</button>}
       </div>
+      {declined && problem && <p role="alert" className="mt-3 text-brick font-semibold">{problem}</p>}
       {state === "sent" && <p className="mt-3 text-accent-dark font-semibold">Thank you. We are on it.</p>}
       {state === "already" && <p className="mt-3 font-semibold">{already}</p>}
       {state === "error" && <p role="alert" className="mt-3 text-brick font-semibold">{problem}</p>}

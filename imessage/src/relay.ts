@@ -185,9 +185,9 @@ export function relayable(msg: IncomingLike): { senderId: string; text: string }
 class RelayError extends Error {}
 
 type Poll = { question: string; options: string[] };
-type ApiResult =
-  | { kind: "ok"; replies: string[]; links: string[]; video: string; poll: Poll | null }
-  | { kind: "limited"; detail: string };
+/** What goes out to a thread: texts 3 s apart, then link cards, the video and the poll. */
+type Out = { replies: string[]; links: string[]; video: string; poll: Poll | null };
+type ApiResult = ({ kind: "ok" } & Out) | { kind: "limited"; detail: string };
 /** What a turn posts: a text to /api/imessage, or a vote to /api/imessage/vote. */
 type Ask = { text: string } | { poll: string; option: string };
 
@@ -215,17 +215,23 @@ async function callApi(fromHash: string, ask: Ask, deps: RelayDeps): Promise<Api
   }
   if (!res.ok) throw new RelayError(`http ${res.status}`);
   if (!body || !Array.isArray(body.replies)) throw new RelayError("bad reply shape");
-  const replies = (body.replies as unknown[])
+  const out = outOf(body);
+  if (!out.replies.length && !out.links.length) throw new RelayError("empty reply");
+  return { kind: "ok", ...out };
+}
+
+/** The texts, link cards, video and poll of an API reply or an outbox entry, cleaned and capped. */
+function outOf(body: any): Out {
+  const replies = (Array.isArray(body?.replies) ? (body.replies as unknown[]) : [])
     .filter((r): r is string => typeof r === "string" && r.trim() !== "")
     .map((r) => r.trim())
     .slice(0, MAX_REPLIES);
-  const links = (Array.isArray(body.links) ? body.links : [body.link])
+  const links = (Array.isArray(body?.links) ? body.links : [body?.link])
     .filter((l: unknown): l is string => typeof l === "string" && l.trim() !== "")
     .map((l: string) => l.trim())
     .slice(0, 2);
-  const video = typeof body.video_url === "string" && body.video_url.startsWith("/media/") ? body.video_url : "";
-  if (!replies.length && !links.length) throw new RelayError("empty reply");
-  return { kind: "ok", replies, links, video, poll: pollOf(body.poll) };
+  const video = typeof body?.video_url === "string" && body.video_url.startsWith("/media/") ? body.video_url : "";
+  return { replies, links, video, poll: pollOf(body?.poll) };
 }
 
 /** Error name or our own safe message. Never the raw message, which could echo user data. */
@@ -284,53 +290,61 @@ export async function handleMessage(msg: IncomingLike, deps: RelayDeps): Promise
 /** One turn: post a text or a vote as `senderId`, then text back the replies, cards, video and poll. */
 async function relayTurn(senderId: string, ask: Ask, deps: RelayDeps): Promise<Outcome> {
   const log = deps.log ?? ((line: string) => console.log(line));
-  const sleep = deps.sleep ?? defaultSleep;
-  const gap = deps.gapMs ?? GAP_MS;
   const fromHash = hashSender(senderId);
   const tag = fromHash.slice(0, 12);
   const started = Date.now();
-  const m = { senderId };
 
-  let outgoing: string[];
-  let links: string[] = [];
-  let video = "";
-  let poll: Poll | null = null;
+  let out: Out;
   let outcome: Outcome;
   await quietly(() => deps.typing?.(true));
   try {
     const r = await callApi(fromHash, ask, deps);
     if (r.kind === "limited") {
-      outgoing = [r.detail];
+      out = { replies: [r.detail], links: [], video: "", poll: null };
       outcome = "rate_limited";
     } else {
-      outgoing = r.replies;
-      links = r.links;
-      video = r.video;
-      poll = r.poll;
+      out = r;
       outcome = "replied";
     }
   } catch (e) {
     log(`[err] ${tag} ${describe(e)}`);
-    outgoing = [SORRY];
+    out = { replies: [SORRY], links: [], video: "", poll: null };
     outcome = "error";
   } finally {
     await quietly(() => deps.typing?.(false));
   }
 
+  if (!(await sendOut(out, senderId, tag, deps))) return "send_failed";
+  log(`[out] ${tag} ${outcome} ${counts(out, deps)} ${((Date.now() - started) / 1000).toFixed(1)}s`);
+  return outcome;
+}
+
+const counts = (o: Out, deps: RelayDeps) =>
+  `texts=${o.replies.length} links=${o.links.length} video=${o.video ? 1 : 0} poll=${o.poll && deps.sendPoll ? 1 : 0}`;
+
+/**
+ * Send `out` to the thread: texts `gapMs` apart, link cards, the video, the poll last. `senderId` is the phone or
+ * Apple ID when we have it (a reply); a push has only the hash, so a share page link then goes out as a card.
+ * False when a send failed (logged).
+ */
+async function sendOut(out: Out, senderId: string | null, tag: string, deps: RelayDeps): Promise<boolean> {
+  const log = deps.log ?? ((line: string) => console.log(line));
+  const sleep = deps.sleep ?? defaultSleep;
+  const gap = deps.gapMs ?? GAP_MS;
   try {
     let n = 0;
     const pace = async () => {
       if (n++ > 0) await sleep(gap);
     };
-    for (const t of outgoing) {
+    for (const t of out.replies) {
       await pace();
       await deps.send(t);
     }
-    for (const l of links) {
+    for (const l of out.links) {
       await pace();
-      if (isShopLink(l) && deps.requestLocation) {
-        const r = await deps.requestLocation(m.senderId).catch(() => "failed" as const);
-        if (r === "sent" && deps.waitLocation) watchLocation(m.senderId, deps);
+      if (isShopLink(l) && senderId && deps.requestLocation) {
+        const r = await deps.requestLocation(senderId).catch(() => "failed" as const);
+        if (r === "sent" && deps.waitLocation) watchLocation(senderId, deps);
         if (r !== "failed") continue; // the request stands in for the share page card
         log(`[loc] ${tag} request failed, sending the share page`);
       }
@@ -341,23 +355,22 @@ async function relayTurn(senderId: string, ask: Ask, deps: RelayDeps): Promise<O
       }
       await (deps.sendLink ? deps.sendLink(l) : deps.send(l));
     }
-    if (video && deps.sendVideo) {
-      const bytes = await fetchVideo(video, deps); // a missing or oversized video is skipped, not an error
+    if (out.video && deps.sendVideo) {
+      const bytes = await fetchVideo(out.video, deps); // a missing or oversized video is skipped, not an error
       if (bytes) {
         await pace();
-        await deps.sendVideo(bytes, video.split("/").pop() || "preview.mp4");
+        await deps.sendVideo(bytes, out.video.split("/").pop() || "preview.mp4");
       }
     }
-    if (poll && deps.sendPoll) {
+    if (out.poll && deps.sendPoll) {
       await pace();
-      await deps.sendPoll(poll.question, poll.options);
+      await deps.sendPoll(out.poll.question, out.poll.options);
     }
+    return true;
   } catch (e) {
     log(`[send-fail] ${tag} ${describe(e)}`);
-    return "send_failed";
+    return false;
   }
-  log(`[out] ${tag} ${outcome} texts=${outgoing.length} links=${links.length} video=${video ? 1 : 0} poll=${poll && deps.sendPoll ? 1 : 0} ${((Date.now() - started) / 1000).toFixed(1)}s`);
-  return outcome;
 }
 
 /** Wait for the owner to share their spot, then hand it to the agent as the share page would. */
@@ -371,4 +384,114 @@ function watchLocation(senderId: string, deps: RelayDeps): void {
     await relayTurn(senderId, { text: shopTurnText(spot) }, deps);
   })();
   (deps.background ?? ((p) => void p.catch(() => {})))(work);
+}
+
+// ---- Texting first ----------------------------------------------------------------------------------------------
+// The API queues texts for a phone when something happens on the website (a yes, a setup that finished). We poll
+// GET /api/imessage/outbox and send each entry into that phone's thread, the way a reply goes out. On GCP every
+// request can start the agent VM, so we poll only for `windowMs` after a phone last texted or voted, kept open
+// while the API says a texting owner has a turn running.
+
+export const PUSH_INTERVAL_MS = 3_000;
+export const PUSH_WINDOW_MS = 30 * 60_000;
+export const POLL_TIMEOUT_MS = 180_000; // the GCP waker holds a request up to 150 s while the VM boots
+
+export interface OutboxDeps {
+  apiUrl: string;
+  secret?: string | undefined;
+  fetch: FetchLike;
+  /** The thread for a sender hash (deps that send into it), or undefined when this relay has not heard that phone. */
+  thread: (fromHash: string) => RelayDeps | undefined;
+  sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
+  log?: (line: string) => void;
+  intervalMs?: number;
+  windowMs?: number;
+}
+
+export class Outbox {
+  private epoch = "";
+  /** null: the next poll only takes the API's cursor, so nothing old is sent (relay start, after a quiet spell). */
+  private cursor: number | null = null;
+  private lastActive = Number.NEGATIVE_INFINITY;
+  private failing = "";
+
+  constructor(private readonly d: OutboxDeps) {}
+
+  private now(): number {
+    return (this.d.now ?? Date.now)();
+  }
+
+  /** A phone texted or voted: poll for the next window. */
+  touch(): void {
+    this.lastActive = this.now();
+  }
+
+  get active(): boolean {
+    return this.now() - this.lastActive < (this.d.windowMs ?? PUSH_WINDOW_MS);
+  }
+
+  /** One poll; never throws. Returns how many entries went out. */
+  async tick(): Promise<number> {
+    const log = this.d.log ?? ((line: string) => console.log(line));
+    if (!this.active) {
+      this.cursor = null;
+      return 0;
+    }
+    const headers: Record<string, string> = {};
+    if (this.d.secret) headers["x-relay-secret"] = this.d.secret;
+    const q = this.cursor === null ? "" : `?${new URLSearchParams({ after: String(this.cursor), epoch: this.epoch })}`;
+    let body: any;
+    try {
+      const res = await this.d.fetch(`${this.d.apiUrl.replace(/\/+$/, "")}/api/imessage/outbox${q}`, {
+        method: "GET",
+        headers,
+        signal: AbortSignal.timeout(POLL_TIMEOUT_MS),
+      });
+      if (!res.ok) throw new RelayError(`http ${res.status}`);
+      body = await res.json().catch(() => null);
+      if (typeof body?.epoch !== "string" || !Number.isInteger(body?.next)) throw new RelayError("bad outbox shape");
+    } catch (e) {
+      const why = describe(e);
+      if (why !== this.failing) log(`[push] poll failed: ${why}`); // once per kind of failure, not every 3 s
+      this.failing = why;
+      return 0;
+    }
+    if (this.failing) log("[push] poll ok again");
+    this.failing = "";
+    const syncing = this.cursor === null;
+    this.epoch = body.epoch;
+    this.cursor = body.next;
+    if (body.busy === true) this.touch();
+    if (syncing) return 0;
+
+    let sent = 0;
+    for (const e of Array.isArray(body.entries) ? body.entries : []) {
+      const h = typeof e?.from_hash === "string" && /^[0-9a-f]{64}$/.test(e.from_hash) ? e.from_hash : "";
+      const tag = h.slice(0, 12) || "?";
+      const deps = h ? this.d.thread(h) : undefined;
+      if (!deps) {
+        log(`[push] ${tag} skipped: no thread for this phone since the relay started`);
+        continue;
+      }
+      const out = outOf(e);
+      if (!out.replies.length && !out.links.length && !out.poll) continue;
+      this.touch();
+      const started = this.now();
+      if (await sendOut(out, null, tag, deps)) {
+        sent++;
+        log(`[push] ${tag} ${counts(out, deps)} ${((this.now() - started) / 1000).toFixed(1)}s`);
+      }
+    }
+    return sent;
+  }
+
+  /** Poll every `intervalMs`, forever. */
+  async run(): Promise<never> {
+    const sleep = this.d.sleep ?? defaultSleep;
+    for (;;) {
+      await this.tick();
+      await sleep(this.d.intervalMs ?? PUSH_INTERVAL_MS);
+    }
+  }
 }

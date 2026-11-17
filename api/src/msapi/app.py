@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from .imessage import IMessage, RateLimited
+from .imessage import NOT_NOW, IMessage, RateLimited
 from .runner import DockerRunner, FakeRunner, Runner, token_looks_valid
 from .settings import Settings
 from .turns import LimitReached, TurnManager
@@ -149,22 +149,41 @@ def create_app(runner: Runner | None = None, settings: Settings | None = None,
 
     @app.get("/api/owners/{owner_id}")
     async def bundle(owner_id: str):
-        return {**ws.read_bundle(owner_id), "active_turn": turns.active_turn(owner_id)}
+        return {**ws.read_bundle(owner_id), "active_turn": turns.active_turn(owner_id),
+                "phone_linked": bool(ws.phones_for_owner(owner_id))}
 
     @app.post("/api/owners/{owner_id}/approvals/{approval_id}")
     async def decide(owner_id: str, approval_id: str, body: DecisionIn):
         # No await between reading and writing the approval, so two clicks cannot both pass.
         # Turn limits are checked before the decision is written: a refused turn leaves it pending to retry.
+        # A "not now" can still become a yes later (the owner changed their mind); a yes is final.
         try:
-            ws.pending_approval(owner_id, approval_id)
-            turns.check(owner_id)
+            ws.pending_approval(owner_id, approval_id, body.decision)
+            if body.decision == "approve":
+                turns.check(owner_id)
             ap = ws.decide(owner_id, approval_id, body.decision)
         except ValueError as e:
             raise HTTPException(409, f"Already {e}")
-        word = "approved" if body.decision == "approve" else "rejected"
-        shown = f"{'Approved' if word == 'approved' else 'Declined'}: {ap['summary']}"
-        tid = turns.start(owner_id, f"Owner {word} approval {approval_id}", "web", log_text=shown)
+        if body.decision == "reject":
+            # "Not now" needs no agent turn: nothing happens until a yes. It answers at once, here and on the phone.
+            ws.add_message(owner_id, "owner", f"Declined: {ap['summary']}", "web")
+            ws.add_message(owner_id, "agent", NOT_NOW, "web")
+            _tell_phone(owner_id, ap, "reject", NOT_NOW)
+            return {"approval": ap, "reply": NOT_NOW}
+        tid = turns.start(owner_id, f"Owner approved approval {approval_id}", "web", log_text=f"Approved: {ap['summary']}")
+        _tell_phone(owner_id, ap, "approve", None)
         return {"turn_id": tid, "approval": ap}
+
+    def _tell_phone(owner_id: str, ap: dict, decision: str, reply: str | None) -> None:
+        """A yes or no on the website, texted to the owner's phone when one texts as this shop (no-op otherwise)."""
+        fn = getattr(app.state.imessage, "web_decided", None)
+        if fn:
+            fn(owner_id, ap, decision, reply=reply)
+
+    @app.get("/api/owners/{owner_id}/link")
+    async def link(owner_id: str):
+        # The shop code the page shows under "Rather text?": texting it to the line ties that phone to this shop.
+        return {"code": ws.link_code(owner_id), "linked": bool(ws.phones_for_owner(owner_id))}
 
     @app.get("/api/owners/{owner_id}/password/{tool_id}")
     async def password(owner_id: str, tool_id: str):
@@ -191,6 +210,15 @@ def create_app(runner: Runner | None = None, settings: Settings | None = None,
             return await app.state.imessage.vote(body.from_hash, body.poll, body.option)
         except RateLimited as e:
             raise HTTPException(429, str(e))
+
+    @app.get("/api/imessage/outbox")
+    async def imessage_outbox(request: Request, after: int | None = Query(None, ge=0),
+                              epoch: str | None = Query(None, max_length=32)):
+        # Texts the relay sends first (a website yes, a setup that finished). Polled by the relay only while a
+        # phone has texted recently: every request through the GCP waker can start the agent VM.
+        if s.relay_secret and not secrets.compare_digest(request.headers.get("x-relay-secret", ""), s.relay_secret):
+            raise HTTPException(401, "Unknown relay")
+        return JSONResponse(app.state.imessage.read_outbox(after, epoch), headers={"Cache-Control": "no-store"})
 
     return app
 

@@ -111,11 +111,19 @@ export async function decide(
   ownerId: string,
   approvalId: string,
   decision: "approve" | "reject",
-): Promise<{ turn_id?: string; already?: string }> {
-  const { status, json } = await post<{ turn_id?: string; detail?: string }>(`/api/owners/${ownerId}/approvals/${approvalId}`, { decision });
+): Promise<{ turn_id?: string; already?: string; reply?: string }> {
+  // A yes starts a turn (turn_id). A "not now" answers at once (reply) and can still become a yes later.
+  const { status, json } = await post<{ turn_id?: string; detail?: string; reply?: string }>(`/api/owners/${ownerId}/approvals/${approvalId}`, { decision });
   if (status === 409) return { already: json?.detail ?? "Already decided" };
   if (status >= 400) throw apiError(status, json, "That did not go through. Please try again in a minute.");
   return json ?? {};
+}
+
+/** The shop code to text to the iMessage line, so that phone carries on as this shop; `linked` once one has. */
+export async function linkCode(ownerId: string): Promise<{ code: string; linked: boolean }> {
+  const r = await fetch(`${base()}/api/owners/${ownerId}/link`, { cache: "no-store" });
+  if (!r.ok) throw new Error("Not found");
+  return (await r.json()) as { code: string; linked: boolean };
 }
 
 export async function revealPassword(ownerId: string, toolId: string): Promise<string | null> {
