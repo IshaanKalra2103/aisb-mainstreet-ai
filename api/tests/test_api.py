@@ -403,7 +403,7 @@ async def test_imessage_sends_share_card_until_profile_has_facts(make_client):
         {"name": "S", "facts": [{"text": "Opens 9 AM Tue", "source_url": "https://a.b"}]}))
     app.state.imessage.min_gap = 0
     body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "again"})).json()
-    assert body["links"] == [body["link"]]
+    assert body["links"] == []  # the share card stops; the plan card comes only when a turn changes the plan
 
 
 async def test_imessage_stops_share_card_once_the_owner_has_shared(make_client):
@@ -416,7 +416,7 @@ async def test_imessage_stops_share_card_once_the_owner_has_shared(make_client):
         f.write(json.dumps({"role": "owner", "text": "Here is my shop. Location: not shared. Link: https://instagram.com/s",
                             "channel": "web"}) + "\n")
     body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "hi"})).json()
-    assert body["links"] == [body["link"]]
+    assert body["links"] == []
 
 
 def test_docker_runner_passes_the_inbox_base_by_name(settings):

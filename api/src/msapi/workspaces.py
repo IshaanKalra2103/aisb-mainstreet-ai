@@ -217,6 +217,15 @@ class Workspaces:
         p = self.root / "_phones.json"
         _write(p, {**(_read(p) or {}), from_hash: owner_id}, mode=0o600)
 
+    def unlink_phone(self, from_hash: str) -> bool:
+        """This phone lets go of its shop (the shop itself stays); its next text starts a new one. True if it had one."""
+        p = self.root / "_phones.json"
+        phones = _read(p) or {}
+        had = phones.pop(from_hash, None) is not None
+        if had:
+            _write(p, phones, mode=0o600)
+        return had
+
     # iMessage: the relay sends a hash of the phone number, never the number
     def owner_for_phone(self, from_hash: str) -> str:
         p = self.root / "_phones.json"

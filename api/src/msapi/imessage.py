@@ -21,6 +21,12 @@ YES, NO = "Yes, set it up", "Not now"
 CLOSED = "That question is already answered. Your page has the latest."
 # The answer to "Not now", on the page and in iMessage. No agent turn: nothing happens until a yes.
 NOT_NOW = "No problem, nothing gets set up. If you change your mind, tap Yes, set it up."
+# "start over": the phone lets go of its shop, and its next text starts a new one. Answered at once, no turn.
+START_OVER_RE = re.compile(r"(?i)\s*(start over|start fresh|new shop|reset)\s*[.!]*\s*")
+STARTED_OVER = ("Okay, starting fresh. What's your shop's website? "
+                "If you don't have one, tell me the shop's name and town.")
+# Files that make the plan card worth sending again when a turn wrote them.
+PLAN_FILES = ("profile.json", "needs.json", "compare_*.json", "preview_*.json", "setup_*.json")
 
 
 class RateLimited(Exception):
@@ -129,6 +135,10 @@ class IMessage:
     async def handle(self, from_hash: str, text: str) -> dict:
         self._guard(from_hash)
         t0 = time.time()
+        if START_OVER_RE.fullmatch(text):
+            had = self.ws.unlink_phone(from_hash)
+            log.info("start over, had a shop: %s", had)
+            return {"replies": [STARTED_OVER], "link": "", "links": [], "video_url": None, "poll": None}
         # A shop code (or page link) from the website: this phone joins that shop. Answered at once, no turn.
         shop = self.ws.owner_in_text(text)
         if shop and from_hash not in self.ws.phones_for_owner(shop):
@@ -225,12 +235,26 @@ class IMessage:
             new = [f for f in self.ws.owner_dir(oid).glob("preview_*.mp4") if f.stat().st_mtime >= t0]
             if new:
                 video = f"/media/{oid}/{max(new, key=lambda f: f.stat().st_mtime).name}"
+        # The plan card only when this turn changed the plan (or the agent pointed at the page): on every reply it
+        # buried questions like "what's your website?" under an old plan.
+        page = [link] if ev and ev["type"] == "done" and (self._plan_changed(oid, t0) or self._mentions(ev["reply"], link)) else []
         if shop:
-            first = f"{link}/shop" if self._needs_shop(oid) else link
-            links = list(dict.fromkeys([first, *urls]))  # the agent may paste the share URL too
+            first = [f"{link}/shop"] if self._needs_shop(oid) else page
+            links = list(dict.fromkeys([*first, *urls]))  # the agent may paste the share URL too
         else:
-            links = list(dict.fromkeys([link, *(u for u in urls if u != f"{link}/shop")]))
+            links = list(dict.fromkeys([*page, *(u for u in urls if u != f"{link}/shop")]))
         return {"replies": replies, "link": link, "links": links, "video_url": video, "poll": self._offer(oid)}
+
+    def _plan_changed(self, oid: str, t0: float) -> bool:
+        d = self.ws.owner_dir(oid)
+        try:
+            return any(f.stat().st_mtime >= t0 for p in PLAN_FILES for f in d.glob(p))
+        except OSError:
+            return False
+
+    @staticmethod
+    def _mentions(reply: str, link: str) -> bool:
+        return bool(re.search(re.escape(link) + r"(?![/\w])", reply or ""))
 
     # Texting first. The relay polls the outbox and sends each entry into the thread of the phone it names.
     def push(self, oid: str, payload: dict) -> int:

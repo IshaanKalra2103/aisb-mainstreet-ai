@@ -46,8 +46,21 @@ async def until_idle(app, oid):
     raise AssertionError("turn did not finish")
 
 
+class SavingRunner(FakeRunner):
+    """Writes needs.json during the turn, as `ws save needs` does in the sandbox."""
+
+    def __init__(self, root, events=None):
+        super().__init__(events or script())
+        self.root = root
+
+    async def run(self, owner_id, prompt, session_id, resume):
+        (self.root / owner_id / "needs.json").write_text(json.dumps({"items": [{"id": "n1"}]}))
+        async for ev in super().run(owner_id, prompt, session_id, resume):
+            yield ev
+
+
 async def test_a_website_turn_of_a_texting_owner_is_pushed(make_client, settings):
-    app, c = make_client(FakeRunner(script(reply="Here is your plan.\n\nThree jobs AI can take.")))
+    app, c = make_client(SavingRunner(settings.workspaces, script(reply="Here is your plan.\n\nThree jobs AI can take.")))
     oid = app.state.ws.owner_for_phone(HASH)
     start = await outbox(c)
     assert start["entries"] == [] and start["busy"] is False
@@ -190,3 +203,60 @@ async def test_outbox_needs_the_relay_secret(make_client, settings):
     assert (await c.get("/api/imessage/outbox", headers={"x-relay-secret": "nope"})).status_code == 401
     ok = await outbox(c, headers={"x-relay-secret": "relay-s3cret"})
     assert set(ok) == {"epoch", "next", "busy", "entries"}
+
+
+# The plan card comes with a reply only when that turn changed the plan, or the agent pointed at the page.
+async def test_a_question_goes_out_without_the_old_plan_card(make_client, settings):
+    app, c = make_client(FakeRunner(script(reply="Hi again! What's your website link?")))
+    oid = app.state.ws.owner_for_phone(HASH)
+    d = app.state.ws.owner_dir(oid)
+    (d / "profile.json").write_text(json.dumps({"name": "College Park coffee shop", "facts": [{"text": "x"}]}))
+    (d / "needs.json").write_text(json.dumps({"items": [{"id": "n1"}]}))
+    body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "hi"})).json()
+    assert body["replies"] == ["Hi again! What's your website link?"] and body["links"] == []
+
+
+async def test_a_turn_that_changes_the_plan_sends_the_card(make_client, settings):
+    app, c = make_client(SavingRunner(settings.workspaces, script(reply="Here is your plan.")))
+    oid = app.state.ws.owner_for_phone(HASH)
+    (app.state.ws.owner_dir(oid) / "profile.json").write_text(json.dumps({"name": "S", "facts": [{"text": "x"}]}))
+    body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "my site is s.example"})).json()
+    assert body["links"] == [f"{settings.web_url}/b/{oid}"]
+
+
+async def test_a_reply_that_points_at_the_page_sends_the_card(make_client, settings):
+    app, c = make_client()
+    oid = app.state.ws.owner_for_phone(HASH)
+    (app.state.ws.owner_dir(oid) / "profile.json").write_text(json.dumps({"name": "S", "facts": [{"text": "x"}]}))
+    link = f"{settings.web_url}/b/{oid}"
+    app.state.turns.runner.events = script(reply=f"It's all on your page: {link}")
+    body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "where is my plan"})).json()
+    assert body["links"] == [link] and body["replies"] == ["It's all on your page"]
+
+
+# "start over": the phone lets go of its shop; the next text starts a new one.
+async def test_start_over_unties_the_phone_and_the_next_text_starts_a_new_shop(make_client, settings):
+    runner = FakeRunner(script())
+    app, c = make_client(runner)
+    app.state.imessage.min_gap = 0
+    old = app.state.ws.owner_for_phone(HASH)
+    r = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "Start over!"})).json()
+    assert r["replies"] == ["Okay, starting fresh. What's your shop's website? If you don't have one, tell me the shop's name and town."]
+    assert r["links"] == [] and r["poll"] is None and runner.calls == []
+    assert app.state.ws.phones_for_owner(old) == [] and app.state.ws.exists(old)  # the old shop stays
+    nxt = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "https://new.example"})).json()
+    assert f"/b/{old}" not in nxt["link"] and runner.calls[0]["owner_id"] != old
+
+
+async def test_start_over_only_on_its_own(make_client):
+    runner = FakeRunner(script())
+    app, c = make_client(runner)
+    old = app.state.ws.owner_for_phone(HASH)
+    await c.post("/api/imessage", json={"from_hash": HASH, "text": "can I start over with a new menu?"})
+    assert runner.calls[0]["owner_id"] == old and app.state.ws.phones_for_owner(old) == [HASH]
+
+
+async def test_start_over_from_an_unknown_phone_is_fine(make_client):
+    app, c = make_client()
+    r = await c.post("/api/imessage", json={"from_hash": OTHER, "text": "reset"})
+    assert r.status_code == 200 and r.json()["links"] == []
