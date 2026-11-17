@@ -24,11 +24,14 @@ test("demo flow", async ({ page }) => {
 test("the home page has two doors: Try it with your shop goes to /start, which asks for a site or what you sell", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByLabel(/Paste your website/)).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Text our iMessage agent" })).toHaveAttribute("href", /^sms:/);
+  // Messages opens with the first text drafted, waiting for the shop's website.
+  await expect(page.getByRole("link", { name: "Text our iMessage agent" }))
+    .toHaveAttribute("href", `sms:+14152250168?&body=${encodeURIComponent("Hi! My shop's website is ")}`);
   await page.getByRole("link", { name: "Try it with your shop" }).click();
   await expect(page).toHaveURL(/\/start$/);
   await expect(page.getByLabel(/Paste your website/)).toBeVisible();
   await expect(page.getByRole("radio", { name: "Salon" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Text us at/ })).toHaveAttribute("href", /body=Hi!%20My%20shop/);
   await expect(page.getByRole("button", { name: "Next" })).toHaveCount(0);
   await page.getByRole("radio", { name: "Salon" }).click();
   await expect(page.getByRole("button", { name: "Next" })).toBeVisible();
