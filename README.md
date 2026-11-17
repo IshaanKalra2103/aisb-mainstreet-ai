@@ -14,7 +14,7 @@ Built for the UMD AI for Small Business Hack-a-thon, Fall 2026.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/how-it-works-dark.png">
-  <img src="docs/assets/how-it-works-light.png" alt="Flowchart in two lanes. You, the shop owner: 1 text the MainStreet number, 3 share your location and one link, 5 see what we found with each fact's source, 7 pick a job and say yes. MainStreet AI: 2 texts back a Share your shop link, 4 reads your website and nearby Google Maps listings, 6 finds jobs AI can do and a trusted tool for each, 8 sets the tool up for you.">
+  <img src="docs/assets/how-it-works-light.png" alt="Flowchart in two lanes. You, the shop owner: 1 text the MainStreet number, 3 share your location and one link, 5 see what we found with each fact's source, 7 watch an AI video of the tool in your shop, then say yes. MainStreet AI: 2 texts back a Share your shop link, 4 reads your website and nearby Google Maps listings, 6 finds jobs AI can do and a trusted tool for each, 8 sets the tool up for you.">
 </picture>
 
 Under the hood:
@@ -25,6 +25,16 @@ Under the hood:
 - **Nothing is set up without a yes.** Each job gets one vetted pick with a trust score, and setup waits for the owner's approval.
 
 The chart's source is [`docs/assets/how-it-works.excalidraw`](docs/assets/how-it-works.excalidraw); open it at excalidraw.com to edit.
+
+## Preview videos
+
+Before saying yes, the owner can see the tool at work in a shop like theirs. The agent writes one scene from the shop's profile, and the `preview` tool renders it as a 6-second clip with Google Veo 3.1 Lite through OpenRouter's video API (720p, no audio, about $0.05 a second). The clip plays on the job card, labelled "AI-generated preview", and arrives inline in iMessage.
+
+<p align="center">
+  <img src="docs/assets/preview-salon.gif" width="480" alt="AI-generated preview for a salon: a client books a haircut on her phone at night; next morning the stylist sees the day's schedule on a tablet at the front desk">
+</p>
+
+The salon's prompt: *a client books a haircut on her phone at night; next morning the owner sees the day's schedule on a tablet at the front desk, warm natural light, documentary style, no logos.* Clips are cached per tool and capped at 2 per owner, 10 a day and $20 in total.
 
 ## Layout
 
