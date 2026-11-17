@@ -1,14 +1,32 @@
-# MainStreet AI
+<p align="center">
+  <a href="https://mainstreet-ai-five.vercel.app"><img src="docs/assets/brand/banner.png" alt="MainStreet AI. AI tools for Main Street, vetted and set up for you. Three phone screens from the app: Where's your shop?, what we found about a salon in Westminster, MD, and a job card for online booking and reminders with Square as our pick, verified by our team, 75/100."></a>
+</p>
+
+<p align="center">
+  <a href="https://mainstreet-ai-five.vercel.app"><strong>Try the prototype</strong></a>
+  &nbsp;&middot;&nbsp;
+  <a href="#how-it-works"><strong>How it works</strong></a>
+  &nbsp;&middot;&nbsp;
+  <a href="#preview-videos"><strong>Preview videos</strong></a>
+  &nbsp;&middot;&nbsp;
+  <a href="#run-it"><strong>Run it</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://mainstreet-ai-five.vercel.app"><img src="https://img.shields.io/badge/prototype-live-d7ff3a?style=flat-square&labelColor=1c1d22" alt="Prototype: live"></a>
+  <img src="https://img.shields.io/badge/iMessage-Photon_Spectrum-34353c?style=flat-square&logo=imessage&logoColor=white&labelColor=1c1d22" alt="iMessage via Photon Spectrum">
+  <img src="https://img.shields.io/badge/agent-Claude_Code-34353c?style=flat-square&logo=claude&logoColor=white&labelColor=1c1d22" alt="Agent: Claude Code">
+  <img src="https://img.shields.io/badge/web_reads-TinyFish-34353c?style=flat-square&labelColor=1c1d22" alt="Web reads: TinyFish">
+  <img src="https://img.shields.io/badge/web-Next.js-34353c?style=flat-square&logo=nextdotjs&logoColor=white&labelColor=1c1d22" alt="Web: Next.js">
+  <img src="https://img.shields.io/badge/api-FastAPI-34353c?style=flat-square&logo=fastapi&logoColor=white&labelColor=1c1d22" alt="API: FastAPI">
+  <img src="https://img.shields.io/badge/sandbox-Docker-34353c?style=flat-square&logo=docker&logoColor=white&labelColor=1c1d22" alt="Sandbox: Docker">
+</p>
+
+<br>
 
 MainStreet AI helps Main Street small businesses (diners, coffee shops, small HVAC firms, landscapers, salons) find AI tools they can trust and get them set up. An owner texts an iMessage line. An agent reads their shop from the web and finds the jobs AI can take off their week. It picks a vetted tool for each job and sets it up once the owner approves.
 
-Built for the UMD AI for Small Business Hack-a-thon, Fall 2026.
-
-<p align="center">
-  <img src="docs/assets/share.png" width="260" alt="Share page: Where's your shop? with Use my location, one link field and a Share button">
-  <img src="docs/assets/profile.png" width="260" alt="Profile card: What we found about your shop, with a fact and its source">
-  <img src="docs/assets/job.png" width="260" alt="Job card: online booking and reminders, our pick Square, verified, 75/100">
-</p>
+Built by Team Forge for the UMD AI for Small Business Hack-a-thon, Fall 2026.
 
 ## How it works
 
@@ -47,6 +65,7 @@ The salon's prompt: *a client books a haircut on her phone at night; next mornin
 | `demo-sites/` | Five fictional Maryland business websites |
 | `imessage/` | Photon relay from iMessage to the API |
 | `scripts/` | `live.sh` (tunnel, deploy, relay) and `prerun_demos.py` |
+| `docs/assets/brand/` | Logo: app icon, wordmarks for light and dark backgrounds, and the banner above (1280 x 640, also the repo's social preview). `node docs/assets/brand/src/render.mjs` rebuilds them from `src/brand.html` |
 
 It grew out of Loopcast, a TinyFish GTM app ([tiny-fish-gtm-automation](https://github.com/IshaanKalra2103/tiny-fish-gtm-automation)).
 
@@ -61,3 +80,14 @@ cd web && pnpm exec playwright test    # web tests
 ```
 
 Keys come from the macOS Keychain: `TINYFISH_API_KEY`, `OPENROUTER_API_KEY`, `AGENTMAIL_API_KEY`, `AISB_CLAUDE_OAUTH`.
+
+<br>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/wordmark-dark.png">
+    <img src="docs/assets/brand/wordmark-light.png" height="36" alt="MainStreet AI">
+  </picture>
+  <br>
+  <sub>Team Forge &middot; UMD AI for Small Business Hack-a-thon, Fall 2026</sub>
+</p>

@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=block" rel="stylesheet">
+<style>
+  :root {
+    --night: #121317; --bg: #1c1d22; --surface: #26272d; --surface-2: #34353c;
+    --line: #33343b; --line-strong: #4a4b53; --ink: #f1f1ee; --ink-2: #a9aab0; --ink-3: #878890;
+    --lime: #d7ff3a; --lime-ink: #15160f;
+    --display: "Fraunces", Georgia, serif; --ui: "Source Sans 3", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; }
+  body { padding: 40px; display: flex; flex-direction: column; gap: 40px; align-items: flex-start; }
+
+  /* ---------- app icon: Fraunces M + lime dot (same mark as the iMessage contact photo) ---------- */
+  .icon { position: relative; width: var(--s); height: var(--s); border-radius: calc(var(--s) * .225);
+          background: var(--bg); overflow: hidden; flex: none;
+          box-shadow: inset 0 0 0 calc(var(--s) * .006) rgb(255 255 255 / .09); }
+  .icon .m { position: absolute; left: calc(var(--s) * .195); top: calc(var(--s) * .212);
+             font-family: var(--display); font-weight: 600; font-size: calc(var(--s) * .56);
+             font-variation-settings: "opsz" 36; color: var(--ink); line-height: 1; letter-spacing: -0.01em; }
+  .icon .dot { position: absolute; width: calc(var(--s) * .135); height: calc(var(--s) * .135); border-radius: 50%;
+               background: var(--lime); left: calc(var(--s) * .745); top: calc(var(--s) * .585); }
+
+  /* ---------- wordmark lockup ---------- */
+  .lockup { display: inline-flex; align-items: center; gap: calc(var(--s) * .32); padding: 6px; }
+  .lockup .name { font-family: var(--display); font-weight: 600; font-size: calc(var(--s) * .66);
+                  font-variation-settings: "opsz" 72; letter-spacing: -0.015em; line-height: 1; white-space: nowrap; }
+  .lockup .name i { font-style: normal; display: inline-block; width: calc(var(--s) * .14); height: calc(var(--s) * .14);
+                    border-radius: 50%; background: var(--lime); margin-left: calc(var(--s) * .05); }
+  .lockup.on-dark .name { color: var(--ink); }
+  .lockup.on-light .name { color: var(--bg); }
+  .lockup.on-light .name i { background: #a3cc00; }
+  .lockup.on-light .icon { box-shadow: none; }
+
+  /* ---------- hero banner, 1280 x 640 (also works as the GitHub social preview) ---------- */
+  #banner { position: relative; width: 1280px; height: 640px; border-radius: 28px; overflow: hidden;
+            background: var(--night); font-family: var(--ui); color: var(--ink); }
+  #banner .grid { position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgb(255 255 255 / .035) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / .035) 1px, transparent 1px);
+    background-size: 48px 48px; background-position: -1px -1px;
+    -webkit-mask-image: radial-gradient(ellipse 70% 90% at 78% 55%, #000 0%, transparent 75%); }
+  #banner .glow { position: absolute; width: 720px; height: 720px; left: 640px; top: 40px; border-radius: 50%;
+    background: radial-gradient(circle, rgb(215 255 58 / .13) 0%, rgb(215 255 58 / .04) 38%, transparent 66%); }
+  #banner .left { position: absolute; left: 72px; top: 84px; width: 520px; }
+  #banner .lockup { --s: 50px; padding: 0; }
+  #banner h1 { margin-top: 58px; font-family: var(--display); font-weight: 500; font-size: 54px; line-height: 1.04;
+               letter-spacing: -0.02em; font-variation-settings: "opsz" 120; }
+  #banner h1 .period { color: var(--lime); }
+  #banner p.sub { margin-top: 22px; font-size: 20px; line-height: 1.45; color: var(--ink-2); width: 470px; }
+  #banner .chips { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 10px; width: 520px; }
+  #banner .chip { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 15px 0 12px; border-radius: 999px;
+                  background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-strong); font-size: 15px; font-weight: 600; color: var(--ink); }
+  #banner .chip svg { width: 16px; height: 16px; color: var(--lime); flex: none; }
+
+  /* phones: built at real 390 x 844 pt, then scaled */
+  .phone { position: absolute; width: 410px; height: 864px; border-radius: 62px; background: #08080a; padding: 10px;
+           transform-origin: 0 0;
+           box-shadow: 0 0 0 1.5px rgb(255 255 255 / .10), 0 0 0 1px #000 inset, 0 50px 90px -20px rgb(0 0 0 / .85), 0 20px 40px -10px rgb(0 0 0 / .6); }
+  .phone .screen { position: relative; width: 390px; height: 844px; border-radius: 52px; overflow: hidden; background: var(--bg); }
+  .phone .status { position: absolute; inset: 0 0 auto 0; height: 50px; background: var(--bg); z-index: 2;
+                   display: flex; align-items: center; justify-content: space-between; padding: 6px 34px 0 46px;
+                   font-family: -apple-system, "SF Pro Text", system-ui, sans-serif; font-weight: 600; font-size: 17px; color: var(--ink); }
+  .phone .island { position: absolute; left: 50%; top: 11px; width: 122px; height: 35px; margin-left: -61px; border-radius: 20px; background: #000; z-index: 3; }
+  .phone .status .icons { display: flex; gap: 6px; align-items: center; }
+  .phone img.shot { position: absolute; left: 0; top: 50px; width: 390px; height: auto; display: block; }
+  .phone .home { position: absolute; left: 50%; bottom: 8px; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; background: rgb(255 255 255 / .55); z-index: 3; }
+
+  #p1 { left: 636px; top: 150px; transform: scale(.52); }
+  #p2 { left: 822px; top: 104px; transform: scale(.565); }
+  #p3 { left: 1018px; top: 58px; transform: scale(.61); }
+  #p1 .screen::after, #p2 .screen::after { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / .14); z-index: 4; }
+</style>
+</head>
+<body>
+
+<!-- 1: banner -->
+<div id="banner">
+  <div class="grid"></div>
+  <div class="glow"></div>
+  <div class="left">
+    <div class="lockup on-dark" style="--s:50px">
+      <div class="icon" style="--s:50px"><span class="m">M</span><span class="dot"></span></div>
+      <span class="name">MainStreet AI</span>
+    </div>
+    <h1>AI tools for Main Street, vetted and set up for you<span class="period">.</span></h1>
+    <p class="sub">Text one iMessage line. An agent reads your shop from the web, finds the jobs AI can take off your week, and sets up a vetted tool once you say yes.</p>
+    <div class="chips">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Works over iMessage</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Every fact has a source</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Nothing set up without a yes</span>
+    </div>
+  </div>
+
+  <div class="phone" id="p1"><div class="screen">
+    <div class="status"><span>9:41</span><span class="icons">STATUS</span></div><div class="island"></div>
+    <img class="shot" src="s1-share.jpg"><div class="home"></div></div></div>
+  <div class="phone" id="p2"><div class="screen">
+    <div class="status"><span>9:41</span><span class="icons">STATUS</span></div><div class="island"></div>
+    <img class="shot" src="s2-found.jpg"><div class="home"></div></div></div>
+  <div class="phone" id="p3"><div class="screen">
+    <div class="status"><span>9:41</span><span class="icons">STATUS</span></div><div class="island"></div>
+    <img class="shot" src="s3-job.jpg"><div class="home"></div></div></div>
+</div>
+
+<!-- 2: app icon -->
+<div class="icon" id="icon" style="--s:512px"><span class="m">M</span><span class="dot"></span></div>
+
+<!-- 3, 4: wordmarks -->
+<div class="lockup on-dark" id="wordmark-dark" style="--s:96px">
+  <div class="icon" style="--s:96px"><span class="m">M</span><span class="dot"></span></div>
+  <span class="name">MainStreet AI</span>
+</div>
+<div class="lockup on-light" id="wordmark-light" style="--s:96px">
+  <div class="icon" style="--s:96px"><span class="m">M</span><span class="dot"></span></div>
+  <span class="name">MainStreet AI</span>
+</div>
+
+<script>
+  // status-bar icons (signal, wifi, battery)
+  const icons = `
+    <svg width="19" height="12" viewBox="0 0 19 12" fill="currentColor"><rect x="0" y="8" width="3.4" height="4" rx="1"/><rect x="5" y="5.5" width="3.4" height="6.5" rx="1"/><rect x="10" y="3" width="3.4" height="9" rx="1"/><rect x="15" y="0" width="3.4" height="12" rx="1"/></svg>
+    <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor"><path d="M8.5 2.6c2.4 0 4.6.9 6.2 2.5l1.2-1.2C13.9 1.9 11.3.8 8.5.8S3.1 1.9 1.1 3.9l1.2 1.2C3.9 3.5 6.1 2.6 8.5 2.6Zm0 3.5c1.4 0 2.7.5 3.7 1.4l1.2-1.2C12.1 5 10.4 4.3 8.5 4.3S4.9 5 3.6 6.3l1.2 1.2c1-.9 2.3-1.4 3.7-1.4Zm0 3.4c.5 0 1 .2 1.3.5L8.5 11.3 7.2 10c.3-.3.8-.5 1.3-.5Z"/></svg>
+    <svg width="27" height="13" viewBox="0 0 27 13" fill="none"><rect x=".5" y=".5" width="23" height="12" rx="3.6" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="20" height="9" rx="2.2" fill="currentColor"/><path d="M25 4.5v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2Z" fill="currentColor" opacity=".45"/></svg>`;
+  document.querySelectorAll('.status .icons').forEach(e => e.innerHTML = icons);
+</script>
+</body>
+</html>
