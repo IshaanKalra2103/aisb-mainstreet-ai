@@ -18,7 +18,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${fraunces.variable} ${source.variable}`}>
       <body className="min-h-screen flex flex-col overflow-x-hidden">
-        <header className="border-b border-line/70 bg-white/60 backdrop-blur">
+        <header className="border-b border-line/70 bg-card/60 backdrop-blur">
           <div className="mx-auto max-w-5xl px-4 py-1 flex items-center justify-between gap-x-4">
             <Link href="/" className="text-xl font-semibold text-ink !no-underline py-2.5 whitespace-nowrap">
               {APP_NAME}<span aria-hidden className="ml-1 inline-block size-1.5 rounded-full bg-accent align-middle" />

@@ -7,7 +7,7 @@ export const BADGE_TEXT: Record<Badge, string> = {
   unknown: "Unknown builder",
 };
 const BADGE_CLASS: Record<Badge, string> = {
-  verified: "bg-accent-tint text-accent-dark border-transparent",
+  verified: "bg-ok-tint text-ok-ink border-transparent",
   caution: "bg-amber-tint text-amber-ink border-transparent",
   unknown: "bg-grey-tint text-grey-ink border-transparent",
 };

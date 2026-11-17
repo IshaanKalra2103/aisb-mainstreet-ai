@@ -23,7 +23,7 @@ export default function ToolCard({ tool, option, recommended, uses = [], detailL
       data-testid="tool-card"
       className={`card p-5 flex flex-col gap-3 ${recommended ? "!border-ink/25" : ""}`}
     >
-      {recommended && <p className="self-start rounded-full bg-accent-tint px-3 py-0.5 text-sm font-semibold text-accent-dark">Our pick for you</p>}
+      {recommended && <p className="self-start rounded-full bg-ok-tint px-3 py-0.5 text-sm font-semibold text-ok-ink">Our pick for you</p>}
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-xl font-semibold">{tool.name}</h3>
         <span data-testid="price" className="font-semibold whitespace-nowrap">{priceLabel(tool)}</span>

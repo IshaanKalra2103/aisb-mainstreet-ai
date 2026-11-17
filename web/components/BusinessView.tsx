@@ -56,10 +56,10 @@ function previewSrc(p?: Preview): string | null {
 /** The photo at the top of a job card: the tool's preview video, or a pale wash when there is none. */
 function CardPhoto({ src, children }: { src: string | null; children?: React.ReactNode }) {
   return (
-    <div className="relative mx-2.5 mt-2.5 flex-1 min-h-[28%] sm:min-h-[36%] overflow-hidden rounded-[20px] bg-grey-tint">
+    <div className="relative mx-2.5 mt-2.5 flex-1 min-h-[96px] sm:min-h-[36%] overflow-hidden rounded-[var(--photo-radius)] bg-grey-tint">
       {src
         ? <video src={src} muted loop autoPlay playsInline preload="auto" aria-hidden className="h-full w-full object-cover" />
-        : <div aria-hidden className="h-full w-full bg-[radial-gradient(80%_80%_at_0%_0%,#e3f1ec,transparent_70%),radial-gradient(80%_80%_at_100%_100%,#e6edf8,transparent_70%)]" />}
+        : <div aria-hidden className="h-full w-full bg-[radial-gradient(80%_80%_at_0%_0%,var(--wash-a),transparent_70%),radial-gradient(80%_80%_at_100%_100%,var(--wash-b),transparent_70%)]" />}
       {children}
     </div>
   );
@@ -75,7 +75,7 @@ function Pill({ children, onPhoto }: { children: React.ReactNode; onPhoto?: bool
 function BigButton({ icon, label, onClick, primary, disabled }: { icon: React.ReactNode; label: string; onClick: () => void; primary?: boolean; disabled?: boolean }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled}
-      className={`flex-1 min-w-0 h-14 rounded-full flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 font-semibold text-[.9rem] sm:text-base whitespace-nowrap transition-[transform,background-color] active:scale-95 disabled:opacity-50 ${primary ? "bg-ink text-white hover:bg-[#2a2c30]" : "bg-white text-ink border border-line hover:bg-grey-tint"}`}>
+      className={`flex-1 min-w-0 h-12 sm:h-14 rounded-[var(--btn-radius,999px)] flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 font-semibold text-[.9rem] sm:text-base whitespace-nowrap transition-[transform,background-color] active:scale-95 disabled:opacity-50 ${primary ? "bg-primary text-on-primary hover:bg-[var(--btn-primary-hover,#2a2c30)]" : "bg-btn2 text-ink border border-btn2-line hover:bg-grey-tint"}`}>
       <span className="shrink-0">{icon}</span><span>{label}</span>
     </button>
   );
@@ -264,15 +264,15 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
               <Pill onPhoto>Job {c.n} of {items.length}</Pill>
               {src && <Pill onPhoto>AI-generated preview</Pill>}
             </div>
-            <p className="absolute left-3 bottom-3 rounded-full bg-accent-tint px-3 py-1 text-sm font-semibold text-accent-dark shadow-sm">
+            <p className="absolute left-3 bottom-3 rounded-full glass px-3 py-1 text-sm font-semibold text-accent">
               About {c.need.est_hours_saved_week} {c.need.est_hours_saved_week === 1 ? "hour" : "hours"} a week
             </p>
           </CardPhoto>
           <div className="shrink max-h-[64%] min-h-0 overflow-y-auto px-5 pt-3.5 sm:px-6">
-            <h2 className="text-[1.7rem] sm:text-[1.95rem] font-semibold leading-[1.08]">{c.need.title}</h2>
+            <h2 className="text-[1.4rem] sm:text-[1.95rem] font-semibold leading-[1.08]">{c.need.title}</h2>
             <p className="mt-1.5 text-base leading-snug text-muted line-clamp-2">{c.need.why}</p>
             {tool ? (
-              <div className="mt-3 rounded-2xl bg-raised border border-line/70 px-4 py-3">
+              <div className="mt-2 sm:mt-3 rounded-2xl bg-raised border border-line/70 px-4 py-2.5 sm:py-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                   <p className="text-base"><span className="text-muted">Our pick:</span> <strong>{tool.name}</strong></p>
                   <p className="text-base text-muted">{priceLabel(tool)}</p>
@@ -281,7 +281,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
                   <BadgePill badge={tool.trust.badge} />
                   <span className="text-sm font-semibold tabular-nums">{tool.trust.score}/100</span>
                 </div>
-                <div className="mt-2.5 flex flex-wrap gap-2">
+                <div className="mt-2 sm:mt-2.5 flex flex-wrap gap-2">
                   <button type="button" className="chip-btn" onClick={() => setSheet({ kind: "compare", need: c.need })}>Compare tools</button>
                   <button type="button" className="chip-btn" onClick={() => setSheet({ kind: "trust", tool })}>Why we trust it</button>
                 </div>
@@ -294,7 +294,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
                   Compare tools</button>}
               </div>
             )}
-            {actionError && <p role="alert" className="mt-2 rounded-xl bg-[#fdecea] px-3 py-2 font-semibold text-brick">{actionError}</p>}
+            {actionError && <p role="alert" className="mt-2 rounded-xl bg-err-tint px-3 py-2 font-semibold text-brick">{actionError}</p>}
           </div>
           <div className="shrink-0 flex gap-2 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
             <BigButton icon={Icon.x} label="Not now" onClick={() => go(at + 1)} />
@@ -406,7 +406,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
 
   const current = cards[at];
   const showWorking = active || (!bundle && !loadError);
-  const cardH = "h-[clamp(480px,calc(100dvh-300px),640px)] sm:h-[clamp(500px,calc(100dvh-320px),720px)]";
+  const cardH = "deck-card h-[clamp(480px,calc(100dvh-300px),640px)] sm:h-[clamp(500px,calc(100dvh-320px),720px)]";
 
   return (
     <MotionConfig reducedMotion="user">
@@ -416,7 +416,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="eyebrow truncate">{demo ? "Example business" : "Your business"}</p>
-            <h1 className="text-2xl font-semibold mt-0.5 truncate">{profile?.name ?? "Getting to know your business"}</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold mt-0.5 truncate">{profile?.name ?? "Getting to know your business"}</h1>
           </div>
           {bundle && !showWorking && mode === "deck" && (
             <button type="button" className="btn btn-secondary shrink-0 !min-h-11 !px-4" onClick={() => setMode("overview")}>{Icon.grid}See all</button>
@@ -425,20 +425,20 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
 
         {items.length > 0 && (
           <ul aria-label="At a glance" className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <li><span className="block text-[2.5rem] leading-none font-light tabular-nums">{items.length}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">jobs for AI</span></li>
-            <li><span className="block text-[2.5rem] leading-none font-light tabular-nums">{hours}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">hours back a week</span></li>
-            <li><span className="block text-[2.5rem] leading-none font-light tabular-nums">{catalog.tools.length}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">tools checked</span></li>
+            <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums">{items.length}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">jobs for AI</span></li>
+            <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums text-accent">{hours}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">hours back a week</span></li>
+            <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums">{catalog.tools.length}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">tools checked</span></li>
           </ul>
         )}
         {!active && lastEvent?.type === "error" && (
-          <p role="alert" className="mt-4 rounded-2xl bg-[#fdecea] px-4 py-3 font-semibold text-brick">{eventLine(lastEvent)}</p>
+          <p role="alert" className="mt-4 rounded-2xl bg-err-tint px-4 py-3 font-semibold text-brick">{eventLine(lastEvent)}</p>
         )}
 
         <LayoutGroup>
           {showWorking ? (
-            <section aria-live="polite" aria-label="Progress" className={`card !rounded-[28px] relative mt-5 overflow-hidden ${cardH}`}>
+            <section aria-live="polite" aria-label="Progress" className={`card !rounded-[var(--deck-radius)] relative mt-5 overflow-hidden ${cardH}`}>
               <div className="relative h-full flex flex-col items-center justify-center p-6 text-center">
-                <div className="soft-pulse h-20 w-20 rounded-full bg-[radial-gradient(circle_at_35%_30%,#ffffff,#bfe6d6_45%,#c9d8f2)] shadow-[0_0_60px_rgba(31,157,107,.18)]" aria-hidden />
+                <div className="soft-pulse h-20 w-20 rounded-full bg-[image:var(--orb)] shadow-[0_0_60px_var(--orb-glow)]" aria-hidden />
                 <p className="mt-8 eyebrow">Working on it</p>
                 <p className="mt-2 text-2xl font-semibold">{statusLine ? eventLine(statusLine) : "Loading your business..."}</p>
                 <p className="mt-3 text-lg text-muted">This can take a minute or two. You can leave this page open.</p>
@@ -467,10 +467,10 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
                         <span className="relative flex min-h-[88px] items-center gap-4 px-3 py-3">
                           {thumb
                             ? <video src={`${thumb}#t=0.5`} muted playsInline preload="metadata" aria-hidden className="h-16 w-16 shrink-0 rounded-2xl object-cover bg-grey-tint" />
-                            : <span aria-hidden className="h-16 w-16 shrink-0 rounded-2xl bg-grey-tint grid place-items-center text-xl font-light tabular-nums text-muted">{i + 1}</span>}
+                            : <span aria-hidden className="h-16 w-16 shrink-0 rounded-2xl bg-grey-tint grid place-items-center font-display text-xl font-medium tabular-nums text-muted">{i + 1}</span>}
                           <span className="min-w-0 flex-1">
                             <span className="block text-lg font-semibold leading-tight">{cardTitle(c)}</span>
-                            <span className={`block text-base ${c.kind === "job" ? "text-accent-dark" : "text-muted"}`}>{cardSub(c)}</span>
+                            <span className={`block text-base ${"text-muted"}`}>{cardSub(c)}</span>
                           </span>
                           <span className="shrink-0 pr-2 text-base font-semibold text-muted">Open</span>
                         </span>
@@ -484,8 +484,8 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
             <section aria-label="Your cards" className="mt-4" onTouchStart={onTouchStart} onTouchMove={onTouchMove}>
               <div className="relative">
                 {/* The stacked edge: more cards are waiting behind this one. */}
-                {at < cards.length - 1 && <div aria-hidden className="absolute inset-x-5 -bottom-3 h-12 rounded-b-[26px] bg-white/80 border border-line shadow-sm" />}
-                {at < cards.length - 2 && <div aria-hidden className="absolute inset-x-10 -bottom-6 h-12 rounded-b-[22px] bg-white/55 border border-line/70" />}
+                {at < cards.length - 1 && <div aria-hidden className="absolute inset-x-5 -bottom-3 h-12 rounded-b-[26px] bg-card/80 border border-line shadow-sm" />}
+                {at < cards.length - 2 && <div aria-hidden className="absolute inset-x-10 -bottom-6 h-12 rounded-b-[22px] bg-card/55 border border-line/70" />}
                 <AnimatePresence initial={false} mode="popLayout" custom={dir}>
                   <motion.article
                     key={current.key}
@@ -500,7 +500,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
                     transition={spring}
                     drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.7} onDragEnd={onDragEnd}
                     aria-roledescription="card" aria-label={`${cardTitle(current)}, ${at + 1} of ${cards.length}`}
-                    className={`card !rounded-[28px] relative overflow-hidden touch-pan-y ${cardH}`}
+                    className={`card !rounded-[var(--deck-radius)] relative overflow-hidden touch-pan-y ${cardH}`}
                   >
                     {renderCard(current)}
                   </motion.article>
@@ -527,7 +527,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
       </div>
 
       <button type="button" onClick={() => setSheet({ kind: "chat" })} aria-label="Ask us a question"
-        className="fixed bottom-5 right-5 z-40 flex h-14 items-center gap-2 rounded-full bg-white border border-line px-5 text-base font-semibold text-ink shadow-[0_1px_2px_rgba(0,0,0,.05),0_12px_32px_rgba(17,18,20,.12)] hover:bg-grey-tint">
+        className="fixed bottom-5 right-5 z-40 flex h-14 items-center gap-2 rounded-[var(--btn-radius,999px)] bg-float border border-btn2-line px-5 text-base font-semibold text-ink shadow-[var(--shadow-pop,0_1px_2px_rgba(0,0,0,.05),0_12px_32px_rgba(17,18,20,.12))] hover:bg-grey-tint">
         {Icon.chat}<span>Ask us</span>
       </button>
 
@@ -575,7 +575,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
                 {(bundle?.messages.length ?? 0) > 0 && (
                   <ul className="grid gap-3" aria-label="Conversation">
                     {bundle!.messages.map((m, i) => (
-                      <li key={i} className={`whitespace-pre-line rounded-2xl px-4 py-2 max-w-[92%] ${m.role === "owner" ? "bg-ink text-white ml-auto" : "bg-grey-tint"}`}>
+                      <li key={i} className={`whitespace-pre-line rounded-2xl px-4 py-2 max-w-[92%] ${m.role === "owner" ? "bg-ink text-paper ml-auto" : "bg-grey-tint"}`}>
                         <span className="sr-only">{m.role === "owner" ? "You: " : "MainStreet: "}</span>{m.text}
                       </li>
                     ))}

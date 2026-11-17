@@ -18,12 +18,12 @@ export default function Sheet({ title, onClose, children, full = false }: {
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <motion.div className="absolute inset-0 bg-black/30" onClick={onClose}
+      <motion.div className="absolute inset-0 bg-[var(--scrim)]" onClick={onClose}
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} />
       <motion.div
         ref={panel}
         role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}
-        className={`relative w-full max-w-[560px] bg-white border border-line rounded-t-[28px] shadow-2xl outline-none flex flex-col ${full ? "h-[94dvh]" : "max-h-[88dvh]"}`}
+        className={`relative w-full max-w-[560px] bg-card border border-line rounded-t-[var(--deck-radius)] shadow-2xl outline-none flex flex-col ${full ? "h-[94dvh]" : "max-h-[88dvh]"}`}
         initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
         transition={{ type: "spring", stiffness: 380, damping: 38 }}
       >

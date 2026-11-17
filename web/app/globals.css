@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-@theme inline {
+/* Not "inline": utilities keep reading var(--color-*), so the owner routes can swap the whole palette (graphite.css). */
+@theme {
   --color-paper: #f3f5f7;
   --color-card: #ffffff;
   --color-raised: #f6f7f9;
@@ -17,16 +18,43 @@
   --color-grey-tint: #f1f3f5;
   --color-grey-ink: #3b3f45;
   --color-brick: #b42318;
+  --color-primary: #111214;
+  --color-on-primary: #ffffff;
+  --color-btn2: #ffffff;
+  --color-btn2-line: #e3e6ea;
+  --color-float: #ffffff;
+  --color-err-tint: #fdecea;
+  --color-ok-tint: #e7f6ef;
+  --color-ok-ink: #157a52;
+  --font-display: var(--font-source), system-ui, sans-serif;
   --font-serif: var(--font-source), system-ui, sans-serif;
   --font-sans: var(--font-source), system-ui, sans-serif;
+}
+
+/* Surface tokens the light look hard-codes; graphite.css overrides them on the owner routes. */
+:root {
+  --wash-a: #e3f1ec;
+  --wash-b: #e6edf8;
+  --card-border: rgba(17, 18, 20, .06);
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 12px 32px rgba(17, 18, 20, .06);
+  --field-line: #d5d9de;
+  --field-bg: #ffffff;
+  --field-ph: #8d939a;
+  --glass-bg: rgba(255, 255, 255, .78);
+  --glass-line: rgba(255, 255, 255, .6);
+  --scrim: rgba(0, 0, 0, .3);
+  --deck-radius: 28px;
+  --photo-radius: 20px;
+  --orb: radial-gradient(circle at 35% 30%, #ffffff, #bfe6d6 45%, #c9d8f2);
+  --orb-glow: rgba(31, 157, 107, .18);
 }
 
 @layer base {
 html { font-size: 18px; background: var(--color-paper); color-scheme: light; }
 body {
   background:
-    radial-gradient(60% 50% at 0% 0%, #e3f1ec 0%, transparent 70%),
-    radial-gradient(60% 50% at 100% 100%, #e6edf8 0%, transparent 70%),
+    radial-gradient(60% 50% at 0% 0%, var(--wash-a) 0%, transparent 70%),
+    radial-gradient(60% 50% at 100% 100%, var(--wash-b) 0%, transparent 70%),
     var(--color-paper);
   background-attachment: fixed;
   color: var(--color-ink);
@@ -43,24 +71,24 @@ img, video { max-width: 100%; }
 @layer components {
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
-  min-height: 52px; padding: .6rem 1.4rem; border-radius: 999px; font-weight: 600;
+  min-height: 52px; padding: .6rem 1.4rem; border-radius: var(--btn-radius, 999px); font-weight: 600;
   border: 1px solid transparent; cursor: pointer; text-decoration: none; text-align: center;
   transition: transform .15s ease, background-color .15s ease, border-color .15s ease;
 }
 .btn:active { transform: scale(.97); }
-.btn-primary { background: #111214; color: #fff; border-color: #111214; }
-.btn-primary:hover { background: #2a2c30; border-color: #2a2c30; }
-.btn-secondary { background: #fff; color: var(--color-ink); border-color: #e3e6ea; }
-.btn-secondary:hover { background: #f1f3f5; }
+.btn-primary { background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); }
+.btn-primary:hover { background: var(--btn-primary-hover, #2a2c30); border-color: var(--btn-primary-hover, #2a2c30); }
+.btn-secondary { background: var(--color-btn2); color: var(--color-ink); border-color: var(--color-btn2-line); }
+.btn-secondary:hover { background: var(--color-grey-tint); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .field {
-  width: 100%; min-height: 52px; padding: .7rem 1rem; border: 1px solid #d5d9de;
-  border-radius: 14px; background: #fff; color: var(--color-ink); font: inherit;
+  width: 100%; min-height: 52px; padding: .7rem 1rem; border: 1px solid var(--field-line);
+  border-radius: 14px; background: var(--field-bg); color: var(--color-ink); font: inherit;
 }
-.field::placeholder { color: #8d939a; }
+.field::placeholder { color: var(--field-ph); }
 .card {
-  background: var(--color-card); border: 1px solid rgba(17, 18, 20, .06); border-radius: 24px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 12px 32px rgba(17, 18, 20, .06);
+  background: var(--color-card); border: 1px solid var(--card-border); border-radius: 24px;
+  box-shadow: var(--card-shadow);
 }
 .chip {
   display: inline-block; padding: .15rem .7rem; border-radius: 999px; font-size: .85rem;
@@ -70,16 +98,16 @@ img, video { max-width: 100%; }
 
 /* Small white chip button, used for the in-card sheet triggers. */
 .chip-btn {
-  display: inline-flex; align-items: center; min-height: 40px; padding: .2rem .95rem; border-radius: 999px;
-  background: #fff; border: 1px solid #e3e6ea; color: var(--color-ink); font-weight: 600; font-size: .85rem;
+  display: inline-flex; align-items: center; min-height: 40px; padding: .2rem .95rem; border-radius: var(--btn-radius, 999px);
+  background: var(--color-btn2); border: 1px solid var(--color-btn2-line); color: var(--color-ink); font-weight: 600; font-size: .85rem;
   transition: background-color .15s ease;
 }
-.chip-btn:hover { background: #f1f3f5; }
+.chip-btn:hover { background: var(--color-grey-tint); }
 
 /* Frosted label used on top of a photo. */
 .glass {
-  background: rgba(255, 255, 255, .78);
-  border: 1px solid rgba(255, 255, 255, .6);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-line);
   color: var(--color-ink);
   -webkit-backdrop-filter: blur(14px) saturate(1.2);
   backdrop-filter: blur(14px) saturate(1.2);
@@ -92,3 +120,6 @@ img, video { max-width: 100%; }
 
 /* On a phone the owner deck needs the whole screen; the site header comes back on wider screens. */
 @media (max-width: 640px) { body:has([data-deck]) > header { display: none; } }
+
+/* Short phones (about 390x664 and under): a shorter deck card keeps the card clear of the floating Ask us button. */
+@media (max-width: 639px) and (max-height: 700px) { .deck-card { height: clamp(380px, calc(100dvh - 300px), 640px); } }
