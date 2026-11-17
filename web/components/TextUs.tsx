@@ -10,7 +10,7 @@ import TextMe from "./TextMe";
  * (same assistant, same plan, same answers), and from then on what happens here is texted to the phone too.
  * On a computer a QR code does the typing: the phone's camera opens Messages with the code already written.
  */
-export default function TextUs({ ownerId, linked }: { ownerId: string; linked: boolean }) {
+export default function TextUs({ ownerId, linked, bare = false }: { ownerId: string; linked: boolean; /** In a sheet: no card frame and no "Rather text?" label (the sheet title says it). */ bare?: boolean }) {
   const [code, setCode] = useState<string | null>(null);
   const [qr, setQr] = useState("");
 
@@ -44,10 +44,10 @@ export default function TextUs({ ownerId, linked }: { ownerId: string; linked: b
   }
   if (!code) return null;
   return (
-    <section aria-label="Rather text?" className="mt-4 flex items-center gap-4 rounded-2xl border border-line bg-raised px-4 py-3.5">
+    <section aria-label="Rather text?" className={bare ? "flex items-center gap-4" : "mt-4 flex items-center gap-4 rounded-2xl border border-line bg-raised px-4 py-3.5"}>
       <div className="min-w-0 flex-1">
-        <p className="eyebrow">Rather text?</p>
-        <p className="mt-1 text-lg leading-snug">Carry on in iMessage. Same shop, same plan, same answers.</p>
+        {!bare && <p className="eyebrow">Rather text?</p>}
+        <p className={`${bare ? "" : "mt-1 "}text-lg leading-snug`}>Carry on in iMessage. Same shop, same plan, same answers.</p>
         <p className="mt-3 text-base text-muted leading-snug">
           Text the code{" "}
           <strong data-testid="shop-code" className="font-display text-2xl font-semibold tracking-[0.06em] text-ink tabular-nums">{code}</strong>

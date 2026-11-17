@@ -28,7 +28,7 @@ STATUS = [
     ("catalog match", "Checking our vetted tools"),
     ("catalog get", "Looking up a tool"),
     ("preview make", "Making a short preview video. This takes a few minutes."),
-    ("preview record", "Recording the preview on a copy of your website"),
+    ("preview record", "Recording the preview"),
     ("preview site-info", "Looking at your homepage"),
     ("approval request", "Asking for your OK"),
     ("approval status", "Checking your answer"),

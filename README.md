@@ -32,9 +32,9 @@ Built by Team Forge for the UMD AI for Small Business Hack-a-thon, Fall 2026.
 
 ## Two doors, one assistant
 
-<a href="docs/assets/two-doors.jpg"><img src="docs/assets/two-doors.jpg" alt="Two doors, one assistant. Text it on iMessage or use the website: same assistant, same shop, same answers, and nothing happens until the owner says yes. Top row: text it on iMessage (an owner texts 'I run a hair salon in Westminster, MD'; the reply says 'Found 4 jobs I can take off your plate. Online booking is the big one, about 4 hours a week', with a Main Street Shears link card and a 'Set up Square for you?' poll), or use the website in any browser (the home page: 'See which AI tools can save your business time.'). Bottom row, six phone screens: 1 What we found, facts about the shop each linked to its source; 2 Why we trust it, six checks with evidence then a person signs off (Square, 75 out of 100); 3 Yes or no, tap on the site or vote in the text thread; 4 It sets it up, signs up on the free plan then hands the human check over; 5 The result, Square is set up with booking page, reminders and payments ready; 6 6-second preview, a before and after look at how it helps the shop."></a>
+<a href="docs/assets/two-doors.jpg"><img src="docs/assets/two-doors.jpg" alt="Two doors, one assistant. Text it on iMessage or use the website: same assistant, same shop, same answers, and nothing happens until the owner says yes. Top row: text it on iMessage (an owner texts 'I run a hair salon in Westminster, MD'; the reply says 'Found 4 jobs I can take off your plate. Online booking is the big one, about 4 hours a week', with a Main Street Shears link card and a 'Set up Square for you?' poll), or use the website in any browser (the home page: 'See which AI tools can save your business time.'). Bottom row, six phone screens: 1 What we found, facts about the shop each linked to its source; 2 Why we trust it, six checks with evidence then a person signs off (Square, 75 out of 100); 3 Yes or no, tap on the site or vote in the text thread; 4 It sets it up, signs up on the free plan then hands the human check over; 5 The result, Square is set up with booking page, reminders and payments ready; 6 see it at work, the tool on a copy of the shop's site or in the shop."></a>
 
-Both doors, then the six steps an owner goes through: what we found, why we trust the pick, yes or no, the setup, the result, and a 6-second preview. Nothing happens until the owner says yes.
+Both doors, then the six steps an owner goes through: what we found, why we trust the pick, yes or no, the setup, the result, and a preview of the tool at work. Nothing happens until the owner says yes.
 
 ## How it works
 
@@ -55,7 +55,7 @@ The chart's source is [`docs/assets/how-it-works.excalidraw`](docs/assets/how-it
 
 ## Preview videos
 
-The last step. Once the tool is set up, the owner gets a 6-second look at how it helps their shop in real life. A preview comes in one of two kinds; both of these are Square at the same salon, Main Street Shears.
+The last step. Once the tool is set up, the owner gets a short look at the tool at work for their shop. A preview comes in one of two kinds; both of these are Square at the same salon, Main Street Shears.
 
 <table>
   <tr>

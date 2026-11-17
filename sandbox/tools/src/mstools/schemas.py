@@ -126,7 +126,9 @@ class Preview(BaseModel):
     status: Literal["completed", "failed", "capped"]
     video_file: str | None = None
     cost_usd: float = 0.0
-    kind: Literal["plain", "site"] = "plain"  # site: made from a rebuild of the shop's own homepage
+    # site: the tool on a rebuild of the shop's own homepage; shop: the tool's own screen on a phone in front of the
+    # shop's photo (the in-shop view, often after a Veo opener); plain: a fully AI-generated scene
+    kind: Literal["plain", "site", "shop"] = "plain"
 
 
 class SetupRecord(BaseModel):

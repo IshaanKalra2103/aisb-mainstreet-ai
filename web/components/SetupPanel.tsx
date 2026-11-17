@@ -1,4 +1,5 @@
 "use client";
+import Sandbox from "./Sandbox";
 import { useState } from "react";
 import type { OwnerBundle } from "@/lib/types";
 import { toolById } from "@/lib/catalog";
@@ -68,7 +69,7 @@ export function Approval({ ownerId, a, onTurn, onChange }: {
 }
 
 /** One setup and where it stands. `liveLink` adds a link to the agent's live browser (the owner page embeds it instead). */
-export function SetupRecordView({ s, liveLink = true }: { ownerId: string; s: OwnerBundle["setups"][string]; live: boolean; liveLink?: boolean }) {
+export function SetupRecordView({ s, liveLink = true, onTry }: { ownerId: string; s: OwnerBundle["setups"][string]; live: boolean; liveLink?: boolean; onTry?: () => void }) {
   const name = toolById(s.tool_id)?.name ?? s.tool_id;
   return (
     <div className="rounded-2xl p-5 bg-raised border border-line">
@@ -79,9 +80,24 @@ export function SetupRecordView({ s, liveLink = true }: { ownerId: string; s: Ow
         <p className="mt-2"><a href={s.streaming_url} target="_blank" rel="noopener noreferrer">Watch live</a></p>
       )}
       {Object.entries(s.links ?? {}).filter(([, u]) => /^https?:\/\//i.test(u)).map(([k, u]) => (
-        <p key={k} className="mt-3 text-lg font-semibold">
-          <a href={u} target="_blank" rel="noopener noreferrer">{LINK_TEXT[k] ?? "Open it"}</a>
-        </p>
+        <a key={k} href={u} target="_blank" rel="noopener noreferrer"
+          className={`btn ${k === "chat_page" && onTry && s.status === "done" ? "btn-secondary" : "btn-primary"} mt-3 mr-3 !min-h-11 !px-5 hover:no-underline`}>
+          {LINK_TEXT[k] ?? "Open it"}
+        </a>
+      ))}
+      {/* The chatbot we made, working, in the Sandbox window (Chatling's share page allows embedding). */}
+      {/* On the owner page, a finished chatbot points at the Sandbox tab, so the owner knows what to do next. */}
+      {s.status === "done" && /^https:\/\//i.test(s.links?.chat_page ?? "") && (onTry ? (
+        <button type="button" onClick={onTry} data-testid="try-in-sandbox"
+          className="mt-4 flex w-full items-center gap-3 rounded-2xl bg-accent px-4 py-3.5 text-left text-[#141518] shadow-sm">
+          <span className="min-w-0 flex-1">
+            <span className="block text-lg font-bold leading-tight">Your chatbot is ready. Try it in the Sandbox.</span>
+            <span className="mt-0.5 block text-sm font-semibold opacity-75">Experimental: works only for Chatling for now.</span>
+          </span>
+          <svg aria-hidden viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="nudge-x shrink-0"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+        </button>
+      ) : (
+        <div className="mt-4"><Sandbox name={name} live={s.links!.chat_page} /></div>
       ))}
       {s.configured.length > 0 && (
         <div className="mt-4"><p className="font-semibold">What we set up</p><ul className="list-disc pl-5">{s.configured.map((c) => <li key={c}>{c}</li>)}</ul></div>

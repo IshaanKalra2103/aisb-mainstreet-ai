@@ -76,6 +76,7 @@ def test_join_duration_and_record(fake):
     assert rec.exists()
     assert _duration(rec) == pytest.approx(4 + 10 - 0.3, abs=0.3)
     assert "opener" in out["preview"]["prompt"] and "opener" in ws.load("preview", "chat-a")["prompt"]
+    assert ws.load("preview", "chat-a")["kind"] == "shop"  # an opener means the in-shop view
     n = ws.load("preview", "chat-a")["prompt"]
     opener.join("chat-a")  # twice must not stack openers
     assert _duration(rec) == pytest.approx(4 + 10 - 0.3, abs=0.3)

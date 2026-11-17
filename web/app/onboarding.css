@@ -235,3 +235,8 @@
   .ob-shop:hover .ob-shop-photo, .ob-shop[data-open] .ob-shop-photo, .ob-shop:hover .ob-shop-photo img, .ob-shop[data-open] .ob-shop-photo img { transform: none; }
   .ob-shop-tag { transform: none; }
 }
+
+/* The arrow on "Try it in the Sandbox": a small nudge to the right, so the next step is obvious. */
+.nudge-x { animation: nudge-x 1.1s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+@keyframes nudge-x { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(5px); } }
+@media (prefers-reduced-motion: reduce) { .nudge-x { animation: none; } }

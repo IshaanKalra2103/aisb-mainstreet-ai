@@ -197,6 +197,19 @@ def test_record_seeks_and_shoots_every_frame_then_saves_a_site_clip(env, monkeyp
     assert (env["work"] / "preview_chatling.mp4").read_bytes() == b"mp4"
 
 
+def test_record_in_shop_view_saves_a_shop_clip(env, monkeypatch, capsys):
+    @contextlib.asynccontextmanager
+    async def fake(proxy=None, width=1440, height=900, minutes=10, on_live=None):
+        yield _RecPage([]), {"id": "b1"}
+    monkeypatch.setattr(browseruse, "browser", fake)
+    monkeypatch.setattr(preview, "_encode", lambda frames_dir, fps, out: out.write_bytes(b"mp4"))
+    page = env["work"] / "index.html"
+    page.write_text(STEPPED)
+    code, out = _cli(monkeypatch, capsys, "record", "--tool", "chatling", "--html", str(page), "--view", "shop")
+    assert code == 0 and out["preview"]["kind"] == "shop" and "in front of the shop" in out["preview"]["prompt"]
+    assert ws.load("preview", "chatling")["kind"] == "shop"
+
+
 def test_record_failure_points_to_the_frames_clip(env, monkeypatch, capsys):
     @contextlib.asynccontextmanager
     async def fake(**k):

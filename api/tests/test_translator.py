@@ -57,7 +57,7 @@ def test_a_recorded_preview_shows_a_status_and_refreshes_the_preview_card():
     tr = Translator()
     out = tr({"type": "assistant", "message": {"content": [
         {"type": "tool_use", "id": "r1", "name": "Bash", "input": {"command": "preview record --tool chatling"}}]}})
-    assert out == [{"type": "status", "text": "Recording the preview on a copy of your website"}]
+    assert out == [{"type": "status", "text": "Recording the preview"}]
     out = tr({"type": "user", "message": {"content": [
         {"type": "tool_result", "tool_use_id": "r1", "content": '{"ok": true, "preview": {"kind": "site"}}'}]}})
     assert out == [{"type": "files", "kinds": ["preview"]}]

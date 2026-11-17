@@ -82,7 +82,7 @@ All start with `.hd` (title) and `.sub` (the shop's name or contact line). Steps
 
 ## Check (at most two fixes)
 
-1. Run `preview record --tool <tool> --html /work/tmp/demo/index.html`. If it errors, fix the page it names and
+1. Run `preview record --tool <tool> --html /work/tmp/demo/index.html --view shop`. If it errors, fix the page it names and
    run it once more.
 2. Final message: `recorded` plus one sentence naming what the photo shows, for the opener prompt ("a barista behind
    a green counter looks left"); or `record failed` and why in one line.

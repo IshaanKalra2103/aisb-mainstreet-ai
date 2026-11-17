@@ -98,7 +98,8 @@ export interface Preview {
   prompt: string;
   status: "completed" | "failed" | "capped";
   video_file?: string | null;
-  kind?: "plain" | "site";
+  /** site: on a copy of their homepage; shop: the tool's own screen in front of their shop; plain: fully AI-generated. */
+  kind?: "plain" | "site" | "shop";
   cost_usd: number;
 }
 export interface SetupRecord {

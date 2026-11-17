@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AssistantRuntimeProvider, ComposerPrimitive, MessagePrimitive, ThreadPrimitive,
   groupPartByType, useAuiState, useExternalStoreRuntime, type AppendMessage, type ThreadMessageLike,
@@ -174,7 +174,12 @@ function Paragraphs({ text }: { text: string }) {
   return <>{paras.map((p, i) => <p key={i} className="chat-para">{p}</p>)}</>;
 }
 
+/** Things shown under an agent message, keyed by its index in `messages` (a preview video under "your preview is ready"). */
+const Extras = createContext<Record<number, ReactNode>>({});
+
 function AgentMessage() {
+  const extras = useContext(Extras);
+  const extra = useAuiState((s) => { const m = /^m(\d+)$/.exec(s.message.id ?? ""); return m ? Number(m[1]) : -1; });
   const first = useAuiState((s) => s.message.index === 0 || s.thread.messages[s.message.index - 1]?.role !== "assistant");
   const running = useAuiState((s) => s.message.status?.type === "running");
   const lastIndex = useAuiState((s) => s.message.parts.length - 1);
@@ -200,6 +205,7 @@ function AgentMessage() {
           }}
         </MessagePrimitive.GroupedParts>
         {running && lastIndex < 0 && <Dots />}
+        {extras[extra] && <div className="mt-3">{extras[extra]}</div>}
       </div>
     </MessagePrimitive.Root>
   );
@@ -247,9 +253,11 @@ function Welcome() {
 }
 
 export default function ChatBox({
-  messages, events = [], suggestions, onSend, disabled, running,
+  messages, events = [], suggestions, onSend, disabled, running, extras = {},
 }: {
   messages: Message[];
+  /** Shown under the agent message at that index in `messages`. */
+  extras?: Record<number, ReactNode>;
   /** The followed turn's events; they become the steps and tool rows above the reply. */
   events?: TurnEvent[];
   suggestions: { label: string; text: string }[];
@@ -282,6 +290,7 @@ export default function ChatBox({
   });
 
   return (
+    <Extras.Provider value={extras}>
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadPrimitive.Root className="chat">
         <ThreadPrimitive.Viewport className="chat-viewport" role="log" aria-label="Conversation" aria-live="polite">
@@ -321,5 +330,6 @@ export default function ChatBox({
         </div>
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>
+    </Extras.Provider>
   );
 }

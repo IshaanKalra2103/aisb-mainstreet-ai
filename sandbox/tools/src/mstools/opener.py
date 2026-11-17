@@ -163,10 +163,11 @@ def join(tool: str, screen: str | None = None, out: str | None = None) -> dict:
     result = {"joined": str(dest), "seconds": round(_duration(dest), 2)}
     if not out and not screen:
         rec_data = ws.load("preview", tool) or {"tool_id": tool, "prompt": "", "status": "completed",
-                                                "video_file": preview.name, "cost_usd": 0.0, "kind": "site"}
+                                                "video_file": preview.name, "cost_usd": 0.0, "kind": "shop"}
         if "opener" not in rec_data["prompt"]:
             rec_data["prompt"] = (rec_data["prompt"] + " (with a Veo opener of the shop's own photo)").strip()
         rec_data["status"], rec_data["video_file"] = "completed", preview.name
+        rec_data["kind"] = "shop"  # an opener is only joined in front of the in-shop view
         ws.save("preview", rec_data)
         result["preview"] = rec_data
     return result

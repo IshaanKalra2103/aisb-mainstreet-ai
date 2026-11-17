@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, type PanInfo } from "motion/react";
@@ -16,6 +16,8 @@ import ReadingSite from "./ReadingSite";
 import { jobPhoto, placePhoto, siteLogo } from "@/lib/places";
 import ToolLogo from "./ToolLogo";
 import Sheet from "./Sheet";
+import Sandbox from "./Sandbox";
+import { previewCaption } from "./PreviewPlayer";
 import Tour from "./Tour";
 import { TOURS } from "@/data/demo/tours";
 
@@ -24,13 +26,14 @@ type CardDef =
   | { key: string; kind: "intro" }
   | { key: string; kind: "job"; need: NeedItem; n: number; tool?: Tool; preview?: Preview };
 /** The three ways to see the jobs: one card at a time, all of them in a list, and what our agent is setting up. */
-type Mode = "deck" | "overview" | "setup";
-const TABS: { id: Mode; label: string }[] = [{ id: "deck", label: "Cards" }, { id: "overview", label: "List" }, { id: "setup", label: "Setup" }];
+type Mode = "deck" | "overview" | "setup" | "sandbox";
+const TABS: { id: Mode; label: string }[] = [{ id: "deck", label: "Cards" }, { id: "overview", label: "List" }, { id: "setup", label: "Setup" }, { id: "sandbox", label: "Sandbox" }];
 type SheetState =
   | { kind: "compare"; need: NeedItem }
   | { kind: "trust"; tool: Tool }
   | { kind: "preview"; preview: Preview; name: string }
   | { kind: "chat" }
+  | { kind: "text" }
   | null;
 
 const spring = { type: "spring" as const, stiffness: 320, damping: 32 };
@@ -317,6 +320,43 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   }, [bundle, live]);
 
   const pending = bundle?.approvals.filter((a) => a.status === "pending") ?? [];
+
+  /** Chatling's share page, once we set it up: the one tool that can be tried live in the Sandbox (experimental). */
+  const liveChat = (() => {
+    const s = bundle?.setups["chatling"];
+    const u = s?.status === "done" ? s.links?.chat_page : undefined;
+    return u && /^https:\/\//i.test(u) ? u : null;
+  })();
+  const [sandboxSeen, setSandboxSeen] = useState(false);
+  useEffect(() => { if (mode === "sandbox") setSandboxSeen(true); }, [mode]);
+  const openSandbox = useCallback(() => {
+    setMode("sandbox");
+    tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+  const sandboxItems = useMemo(() => {
+    const out: { key: string; title: string; name: string; video: string | null; note?: string; live: string | null }[] = [];
+    for (const c of cards) {
+      if (c.kind !== "job") continue;
+      const video = previewSrc(c.preview);
+      const name = (c.preview && toolById(c.preview.tool_id)?.name) ?? c.tool?.name ?? "this tool";
+      const isChat = (c.preview?.tool_id ?? c.tool?.id) === "chatling";
+      const live = isChat ? liveChat : null;
+      if (!video && !live) continue;
+      const note = c.preview ? previewCaption(c.preview, name) : undefined;
+      out.push({ key: c.key, title: `${c.need.title}: ${name}`, name, video, note, live });
+    }
+    // Previews made in the chat for a tool that is not any job's pick still belong here.
+    const covered = new Set(out.map((x) => x.video));
+    for (const p of Object.values(bundle?.previews ?? {})) {
+      const video = previewSrc(p);
+      if (!video || covered.has(video)) continue;
+      const name = toolById(p.tool_id)?.name ?? p.tool_id;
+      const note = previewCaption(p, name);
+      out.push({ key: `preview-${p.tool_id}`, title: name, name, video, note, live: p.tool_id === "chatling" ? liveChat : null });
+    }
+    if (liveChat && !out.some((x) => x.live)) out.push({ key: "chatling-live", title: "Your chatbot: Chatling", name: "Chatling", video: null, live: liveChat });
+    return out;
+  }, [cards, liveChat, bundle]);
   const records = bundle ? Object.values(bundle.setups) : [];
   // Setups the owner said "not now" to and can still say yes to: the latest per tool, while that tool has no other
   // open or approved ask and no setup record.
@@ -358,6 +398,48 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   }, [go, at, sheet, mode]);
 
   const closeSheet = useCallback(() => setSheet(null), []);
+
+  const PILL_KEY = "ms-text-pill-hidden";
+  const [pillHidden, setPillHidden] = useState(false);
+  useEffect(() => { try { if (sessionStorage.getItem(PILL_KEY) === "1") setPillHidden(true); } catch { /* storage off: show it */ } }, []);
+  const hidePill = useCallback(() => {
+    setPillHidden(true);
+    try { sessionStorage.setItem(PILL_KEY, "1"); } catch { /* hidden for this page view only */ }
+  }, []);
+
+  /**
+   * A finished preview, shown in the chat right under the reply that talks about it: the last agent message that says
+   * "preview" and names the tool. One video per tool, with a way into the Sandbox tab.
+   */
+  const chatExtras = useMemo(() => {
+    const out: Record<number, ReactNode> = {};
+    if (!bundle) return out;
+    const shown = new Set<string>();
+    const msgs = bundle.messages;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      if (m.role !== "agent" || !/\bpreview\b/i.test(m.text)) continue;
+      const p = Object.values(bundle.previews).find((p) => {
+        const name = toolById(p.tool_id)?.name;
+        return !shown.has(p.tool_id) && !!previewSrc(p) && !!name && m.text.toLowerCase().includes(name.toLowerCase());
+      });
+      if (!p) continue;
+      shown.add(p.tool_id);
+      const name = toolById(p.tool_id)!.name;
+      out[i] = (
+        <div data-testid="chat-preview" className="grid gap-2">
+          <Sandbox name={name} video={previewSrc(p)}
+            videoNote={previewCaption(p, name)}
+            live={p.tool_id === "chatling" ? liveChat : null} />
+          <button type="button" onClick={() => { setSheet(null); openSandbox(); }} className="btn btn-secondary !min-h-11 justify-self-start !px-4">
+            Open the Sandbox tab
+            <svg aria-hidden viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </button>
+        </div>
+      );
+    }
+    return out;
+  }, [bundle, liveChat, openSandbox]);
 
   const tabsRef = useRef<HTMLDivElement>(null);
   const show = (m: Mode) => {
@@ -520,7 +602,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         {live ? (
           <>
             {(streams.length > 0 || starting.length > 0) && (
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className={`grid gap-4 ${streams.length + starting.length > 1 ? "lg:grid-cols-2" : ""}`}>
                 {streams.map((s) => <LiveBrowser key={s.tool_id} s={s} />)}
                 {starting.map((s) => <StartingBrowser key={s.tool_id} s={s} />)}
               </div>
@@ -528,7 +610,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
             {pending.length > 0 && <p className="eyebrow">Waiting for your OK</p>}
             {pending.map((a) => <Approval key={`${a.id}-${a.status}`} ownerId={ownerId} a={a} onTurn={follow} onChange={refresh} />)}
             {declined.map((a) => <Approval key={`${a.id}-${a.status}`} ownerId={ownerId} a={a} onTurn={follow} onChange={refresh} />)}
-            {records.map((s) => <SetupRecordView key={s.tool_id} ownerId={ownerId} s={s} live={live} liveLink={false} />)}
+            {records.map((s) => <SetupRecordView key={s.tool_id} ownerId={ownerId} s={s} live={live} liveLink={false} onTry={openSandbox} />)}
             {!pending.length && !declined.length && !records.length && !active && (
               <div>
                 <h3 className="text-[1.6rem] font-semibold leading-tight">Nothing happens until you say yes</h3>
@@ -605,8 +687,6 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
             </ul>
           )}
 
-          {/* The other door: carry on in iMessage as this same shop. */}
-          {live && bundle && <TextUs ownerId={ownerId} linked={!!bundle.phone_linked} />}
         </div>
 
         {/* Its jobs: the right column from 1280 px. */}
@@ -624,13 +704,16 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
                   <button type="button" onClick={() => setSheet({ kind: "chat" })} className="btn btn-secondary !min-h-11 !px-4 shrink-0 sm:hidden">{Icon.chat}Ask us</button>
                 )}
               </div>
-              <div role="group" aria-label="How to see your jobs" className="mt-3 grid grid-cols-3 gap-1 rounded-full bg-grey-tint p-1">
+              <div role="group" aria-label="How to see your jobs" className="mt-3 grid grid-cols-4 gap-1 rounded-full bg-grey-tint p-1">
                 {TABS.map((t) => (
                   <button key={t.id} type="button" data-tour-action={`tab-${t.id}`} aria-pressed={mode === t.id} onClick={() => setMode(t.id)}
-                    className={`flex h-10 items-center justify-center gap-1.5 rounded-full text-base font-semibold transition-[background-color,color] duration-150 ${mode === t.id ? "bg-card text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
+                    className={`flex h-10 min-w-0 items-center justify-center gap-1 sm:gap-1.5 rounded-full text-[15px] sm:text-base font-semibold transition-[background-color,color] duration-150 ${mode === t.id ? "bg-card text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
                     {t.label}
                     {t.id === "setup" && streams.length > 0 && (
-                      <span className="flex items-center gap-1 rounded-full bg-accent px-1.5 py-px text-xs font-bold text-[#141518]"><span aria-hidden className="soft-pulse size-1.5 rounded-full bg-current" />Live</span>
+                      <span className="flex items-center gap-1 rounded-full bg-accent px-1.5 py-px text-xs font-bold text-[#141518]"><span aria-hidden className="soft-pulse size-1.5 rounded-full bg-current" /><span className="hidden sm:inline">Live</span></span>
+                    )}
+                    {t.id === "sandbox" && liveChat && !sandboxSeen && (
+                      <span aria-label="new" data-testid="sandbox-new" className="soft-pulse size-2.5 shrink-0 rounded-full bg-accent" />
                     )}
                     {t.id === "setup" && !streams.length && pending.length > 0 && (
                       <span className="grid size-5 place-items-center rounded-full bg-ink text-xs font-bold text-paper">{pending.length}</span>
@@ -656,6 +739,17 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
               </div>
             ) : mode === "setup" ? (
               <section aria-label="Setup" data-tour="setup" className="mt-5 grid gap-4">{renderSetup()}</section>
+            ) : mode === "sandbox" ? (
+              <section aria-label="Sandbox" className="mt-5 grid gap-6">
+                <p className="text-lg leading-snug text-muted">See each tool at work. Once we set a tool up, you can try the real thing here too. That part is experimental and works only for Chatling for now.</p>
+                {sandboxItems.map((x) => (
+                  <div key={x.key}>
+                    <h3 className="mb-2 text-xl font-semibold leading-tight">{x.title}</h3>
+                    <Sandbox name={x.name} video={x.video} videoNote={x.note} live={x.live} />
+                  </div>
+                ))}
+                {!sandboxItems.length && <p className="text-lg">No previews here yet. Open a job and press See it at work, or say yes to a setup.</p>}
+              </section>
             ) : mode === "overview" ? (
               <div className="mt-5">
                 <ol aria-label="All jobs" className="grid gap-3">
@@ -738,6 +832,26 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         {Icon.chat}<span>Ask us</span>
       </button>}
 
+      {/* The other door, out of the way: a pill that opens the shop code, QR and "Text me" form in a sheet.
+          Its x hides it for the rest of this visit (session storage), for an owner who finds it a distraction. */}
+      {!sheet && live && bundle && !pillHidden && (
+        <div data-testid="text-pill-wrap" className="fixed bottom-5 left-4 sm:left-5 z-40 flex h-14 items-stretch overflow-hidden rounded-[var(--btn-radius,999px)] bg-float border border-btn2-line text-ink shadow-[var(--shadow-pop,0_1px_2px_rgba(0,0,0,.05),0_12px_32px_rgba(17,18,20,.12))]">
+          <button type="button" onClick={() => setSheet({ kind: "text" })} data-testid="text-pill"
+            aria-label={bundle.phone_linked ? "Texting with us on iMessage" : "Rather text? Carry on in iMessage"}
+            className="flex items-center gap-2.5 pl-3.5 pr-3 text-base font-semibold hover:bg-grey-tint">
+            <span aria-hidden className="grid size-8 place-items-center rounded-full bg-[#0a84ff] text-white">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M12 3.5c-5 0-9 3.4-9 7.6 0 2.4 1.3 4.6 3.4 6-.2 1.3-.8 2.5-1.7 3.4 1.9-.1 3.6-.8 4.9-1.8.8.2 1.6.3 2.4.3 5 0 9-3.4 9-7.6s-4-7.9-9-7.9z" /></svg>
+            </span>
+            <span className="sm:hidden">Text us</span>
+            <span className="hidden sm:inline">{bundle.phone_linked ? "Texting on iMessage" : "Rather text? Carry on in iMessage"}</span>
+          </button>
+          <button type="button" onClick={hidePill} aria-label="Hide the iMessage button for this visit" data-testid="text-pill-hide"
+            className="grid w-11 place-items-center border-l border-btn2-line text-muted hover:bg-grey-tint hover:text-ink">
+            <svg aria-hidden viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+      )}
+
       {demo && tour && TOURS[ownerId.replace(/^demo-/, "")] && <Tour slug={ownerId.replace(/^demo-/, "")} steps={TOURS[ownerId.replace(/^demo-/, "")]} onClose={() => setTour(false)} />}
 
       <AnimatePresence>
@@ -764,18 +878,23 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         )}
         {sheet?.kind === "preview" && (
           <Sheet key="preview" title={`See ${sheet.name} at work`} onClose={closeSheet}>
-            <figure data-tour="preview">
-              <video src={previewSrc(sheet.preview) ?? undefined} autoPlay muted controls playsInline loop
-                className="block w-full h-auto max-h-[70dvh] aspect-[auto_16/9] rounded-2xl bg-black object-contain" />
-              <figcaption className="mt-3 text-lg font-semibold">{sheet.preview.kind === "site" ? `Preview of ${sheet.name} on a copy of your website` : `AI-generated preview of how ${sheet.name} would work in your business`}</figcaption>
-            </figure>
+            <div data-tour="preview">
+              <Sandbox name={sheet.name} video={previewSrc(sheet.preview)}
+                videoNote={previewCaption(sheet.preview, sheet.name)}
+                live={sheet.preview.tool_id === "chatling" ? liveChat : null} />
+            </div>
+          </Sheet>
+        )}
+        {sheet?.kind === "text" && bundle && (
+          <Sheet key="text" title="Text us on iMessage" onClose={closeSheet}>
+            <TextUs ownerId={ownerId} linked={!!bundle.phone_linked} bare />
           </Sheet>
         )}
         {sheet?.kind === "chat" && (
           <Sheet key="chat" title="Ask us anything" onClose={closeSheet} full>
             {live ? (
               <div className="flex min-h-0 flex-1 flex-col">
-                <ChatBox messages={bundle?.messages ?? []} events={events} suggestions={suggestions} onSend={send} disabled={offline} running={!!active} />
+                <ChatBox messages={bundle?.messages ?? []} events={events} suggestions={suggestions} onSend={send} disabled={offline} running={!!active} extras={chatExtras} />
               </div>
             ) : (
               <div className="grid gap-4">

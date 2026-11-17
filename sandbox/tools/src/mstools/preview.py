@@ -252,8 +252,10 @@ def _encode(frames_dir: Path, fps: int, out: Path) -> None:
     subprocess.run(cmd, check=True, capture_output=True, timeout=180)
 
 
-def record(tool: str, html_path: str) -> dict:
-    """Record the run-through: the cursor opens the tool, the customer types, the tool answers, all in exact words."""
+def record(tool: str, html_path: str, view: str = "site") -> dict:
+    """Record the run-through: the cursor opens the tool, the customer types, the tool answers, all in exact words.
+
+    view: "site" for the rebuild of the shop's homepage (site-demo), "shop" for the in-shop view (screen-demo)."""
     f = Path(html_path)
     if not f.is_file():
         raise ToolError(f"No page at {html_path}. Write the rebuild as one file, /work/tmp/demo/index.html, first.")
@@ -275,8 +277,9 @@ def record(tool: str, html_path: str) -> dict:
                         "--tool T --prompt P --first /work/demo_first.jpg --last /work/demo_last.jpg).")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    rec = _record(tool, "Recorded run-through of the tool on a copy of the shop's homepage", "completed", mp4.name,
-                  0.0, "site")
+    what = ("Recorded run-through of the tool's own screen on a phone in front of the shop" if view == "shop"
+            else "Recorded run-through of the tool on a copy of the shop's homepage")
+    rec = _record(tool, what, "completed", mp4.name, 0.0, "shop" if view == "shop" else "site")
     return {"preview": rec, "cached": False}
 
 
@@ -284,7 +287,7 @@ def _main(a: argparse.Namespace) -> dict:
     if (r := opener.handle(a)) is not None:
         return r
     if a.cmd == "record":
-        return record(a.tool, a.html)
+        return record(a.tool, a.html, a.view)
     if a.cmd == "site-info":
         return site_info(a.url)
     if a.cmd == "frames":
@@ -311,6 +314,8 @@ def main() -> None:
     rc = sub.add_parser("record", help="record the run-through on the one-file rebuild: cursor, typing, the answer")
     rc.add_argument("--tool", required=True)
     rc.add_argument("--html", default="/work/tmp/demo/index.html")
+    rc.add_argument("--view", choices=("site", "shop"), default="site",
+                    help="site: a copy of the shop's homepage; shop: the tool's screen in front of the shop (screen-demo)")
     run(_main, p)
 
 

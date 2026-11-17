@@ -41,7 +41,7 @@ description: Make one short preview video of a tool doing its job inside this ow
       `preview site-info --url <website>`, never a logo or a banner with text; none if there is no site), the
       tool's name and job, and the topic: a
       real item or service from their site (never invented prices, hours or claims).
-   b. When it answers `recorded <sentence>`: `preview record --tool <tool_id> --html /work/tmp/demo/index.html`
+   b. When it answers `recorded <sentence>`: `preview record --tool <tool_id> --html /work/tmp/demo/index.html --view shop`
       (the agent already ran it once; run it again only if the clip is missing), then
       `preview opener --tool <tool_id> --photo <photo url> --prompt "<motion>"`, where the motion is one calm
       sentence bringing the photo to life with things, not people (steam off a cup, light shifting, leaves moving;
