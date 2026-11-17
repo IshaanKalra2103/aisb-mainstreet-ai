@@ -16,7 +16,7 @@ OUTBOX_TTL = 900.0
 OUTBOX_MAX = 200
 WELCOME_TTL = 120.0  # a welcome's raw number is dropped after this even if the relay never read it
 
-MAX_TEXTS = 3
+MAX_TEXTS = 5
 # Native iMessage poll for a pending approval. The vote decides it the way the page's buttons do.
 YES, NO = "Yes, set it up", "Not now"
 CLOSED = "That question is already answered. Your page has the latest."
@@ -149,7 +149,7 @@ class IMessage:
             tid = self.turns.start(oid, text, "imessage")
         except LimitReached as e:  # busy owner, full queue, daily cap: the relay texts the detail back
             raise RateLimited(str(e))
-        return await self._reply(oid, tid, t0)
+        return await self._reply(oid, tid, t0, text)
 
     def _join(self, from_hash: str, oid: str, text: str) -> dict:
         """Tie this phone to a shop started on the website, and say so with the shop's card (and its open question)."""
@@ -208,7 +208,7 @@ class IMessage:
             raise RateLimited(str(e))
         return await self._reply(oid, tid, t0)
 
-    async def _reply(self, oid: str, tid: str, t0: float) -> dict:
+    async def _reply(self, oid: str, tid: str, t0: float, text: str = "") -> dict:
         ev = await self.turns.wait(tid, self.wait_s)
         if ev is None:
             turn = self.turns.get(tid)
@@ -216,7 +216,18 @@ class IMessage:
                 ev = turn.events[-1]
             else:
                 self.follow.add(tid)  # no await since the check: its listener has not run yet
+                return self._busy(text)
         return self._payload(oid, ev, t0)
+
+    @staticmethod
+    def _busy(text: str) -> dict:
+        """The quick answer while a turn runs on: no card (the finished turn's push brings the right one, so the owner
+        never gets two "Your AI plan" cards), and a heart on their text when they sent their site."""
+        if URL_RE.search(text or ""):
+            replies, tapback = ["Ooh, reading your site now!", "Give me a minute, I'll text you back."], "love"
+        else:
+            replies, tapback = ["On it, give me a minute. I'll text you when it's done."], None
+        return {"replies": replies, "link": "", "links": [], "video_url": None, "poll": None, "tapback": tapback}
 
     def _payload(self, oid: str, ev: dict | None, t0: float, shop: bool = True) -> dict:
         """What the relay sends for a turn's final event (None: still running). `shop` False for pushes: they
@@ -224,7 +235,7 @@ class IMessage:
         link = f"{self.s.web_url}/b/{oid}"
         urls: list[str] = []
         if ev is None:
-            replies = ["Still working on that. I'll text you when it's done."]
+            replies = self._busy("")["replies"]
         elif ev["type"] == "error":
             replies = ["Something went wrong on my side. Try again in a minute."]
         else:
@@ -244,7 +255,10 @@ class IMessage:
             links = list(dict.fromkeys([*first, *urls]))  # the agent may paste the share URL too
         else:
             links = list(dict.fromkeys([*page, *(u for u in urls if u != f"{link}/shop")]))
-        return {"replies": replies, "link": link, "links": links, "video_url": video, "poll": self._offer(oid)}
+        # A tapback reacts to the owner's text; push() leaves it out, since a push has none to react to.
+        tapback = ev.get("tapback") if ev and ev["type"] == "done" else None
+        return {"replies": replies, "link": link, "links": links, "video_url": video, "poll": self._offer(oid),
+                "tapback": tapback}
 
     def _plan_changed(self, oid: str, t0: float) -> bool:
         d = self.ws.owner_dir(oid)
@@ -327,7 +341,8 @@ class IMessage:
         self.follow.discard(turn.id)
         # Phones first: _payload marks a pending approval as offered, which must not happen for a web-only owner.
         if (turn.channel == "web" or followed) and self.ws.phones_for_owner(turn.owner_id):
-            self.push(turn.owner_id, self._payload(turn.owner_id, ev, turn.created, shop=False))
+            # A followed iMessage turn is the owner's own conversation, so its card may be the share card.
+            self.push(turn.owner_id, self._payload(turn.owner_id, ev, turn.created, shop=followed))
 
     def web_decided(self, oid: str, ap: dict, decision: str, reply: str | None = None) -> None:
         """The website's yes or no on an approval. A yes is texted at once, so the phone hears it before the setup

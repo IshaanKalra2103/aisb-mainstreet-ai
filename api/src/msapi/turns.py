@@ -55,6 +55,21 @@ def _text(content) -> str:
 
 
 
+# The agent may open an iMessage reply with "tapback: love" (sandbox/CLAUDE.md): a reaction on the owner's text, not
+# a bubble. It is pulled out of the reply here, so the page, the log and the bubbles never show it.
+TAPBACKS = ("love", "like", "laugh", "emphasize", "question")
+TAPBACK_RE = re.compile(r"\A\s*tapback:[ \t]*([A-Za-z]*)[^\n]*(?:\n|\Z)", re.I)
+
+
+def split_tapback(text: str) -> tuple[str, str | None]:
+    """(reply without a leading "tapback: ..." line, the tapback if it is one we send, else None)."""
+    m = TAPBACK_RE.match(text or "")
+    if not m:
+        return text, None
+    kind = m[1].lower()
+    return text[m.end():].lstrip("\n"), kind if kind in TAPBACKS else None
+
+
 def plain(text: str) -> str:
     """Drop markdown bold and headings: the web bubble and iMessage both show them as raw symbols."""
     text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
@@ -94,7 +109,8 @@ class Translator:
             if ev.get("is_error") or ev.get("subtype") != "success":
                 out.append({"type": "error", "message": FAILED, "detail": str(ev.get("result") or ev.get("subtype"))[:500]})
             else:
-                out.append({"type": "done", "reply": plain(ev.get("result") or "")})
+                reply, tapback = split_tapback(plain(ev.get("result") or ""))
+                out.append({"type": "done", "reply": reply, **({"tapback": tapback} if tapback else {})})
         elif t == "runner_error":
             out.append({"type": "error", "message": FAILED, "detail": str(ev.get("message"))[:500]})
         return out

@@ -120,7 +120,8 @@ async def test_an_imessage_turn_that_outlives_the_wait_is_pushed_when_it_ends(ma
     app.state.imessage.wait_s = 0.05
     start = await outbox(c)
     first = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "set it up"})).json()
-    assert first["replies"] == ["Still working on that. I'll text you when it's done."]
+    assert first["replies"] == ["On it, give me a minute. I'll text you when it's done."]
+    assert first["links"] == [] and first["tapback"] is None  # the push brings the card
     assert (await outbox(c, start["next"], start["epoch"]))["busy"] is True
     runner.gate.set()
     oid = app.state.ws.owner_for_phone(HASH)
@@ -260,3 +261,18 @@ async def test_start_over_from_an_unknown_phone_is_fine(make_client):
     app, c = make_client()
     r = await c.post("/api/imessage", json={"from_hash": OTHER, "text": "reset"})
     assert r.status_code == 200 and r.json()["links"] == []
+
+
+async def test_a_shared_site_gets_a_heart_and_a_human_hold_on_then_one_card(make_client):
+    runner = GateRunner(script(reply="tapback: love\n\nLove the four cafes!\n\nWant to see it?"))
+    app, c = make_client(runner)
+    app.state.imessage.wait_s = 0.05
+    start = await outbox(c)
+    first = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "https://vigilante.example"})).json()
+    assert first["replies"] == ["Ooh, reading your site now!", "Give me a minute, I'll text you back."]
+    assert first["tapback"] == "love" and first["links"] == []
+    runner.gate.set()
+    await until_idle(app, app.state.ws.owner_for_phone(HASH))
+    entries = (await outbox(c, start["next"], start["epoch"]))["entries"]
+    assert [e["replies"] for e in entries] == [["Love the four cafes!", "Want to see it?"]]
+    assert "tapback" not in entries[0]  # a push has no text to react to

@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
-import { GAP_MS, handleMessage, hashSender, type IncomingLike, type RelayDeps, SORRY } from "../src/relay.ts";
+import { GAP_MS, handleMessage, hashSender, type IncomingLike, MAX_REPLIES, type RelayDeps, SORRY } from "../src/relay.ts";
 
 const PHONE = "+14105550123";
 const TEXT = "I run a hair salon in Westminster MD, what AI could help me?";
@@ -43,7 +43,7 @@ test("hashSender is sha256 hex of the sender id", () => {
   assert.match(hashSender(PHONE), /^[0-9a-f]{64}$/);
 });
 
-test("posts {from_hash, text} with the relay secret, then sends replies 3 s apart and the link", async () => {
+test("posts {from_hash, text} with the relay secret, then sends replies GAP_MS apart and the link", async () => {
   const h = harness(() => json(200, { replies: ["one", "two"], link: "https://web.test/b/o_abc" }));
   assert.equal(await handleMessage(msg(), h.deps), "replied");
 
@@ -60,7 +60,7 @@ test("posts {from_hash, text} with the relay secret, then sends replies 3 s apar
   assert.deepEqual(h.events, [
     "send:one", `sleep:${GAP_MS}`, "send:two", `sleep:${GAP_MS}`, "send:https://web.test/b/o_abc",
   ]);
-  assert.equal(GAP_MS, 3000);
+  assert.equal(GAP_MS, 1800);
 });
 
 test("no secret header when no secret is configured", async () => {
@@ -69,10 +69,10 @@ test("no secret header when no secret is configured", async () => {
   assert.equal((h.calls[0]!.init.headers as Record<string, string>)["x-relay-secret"], undefined);
 });
 
-test("keeps at most 3 replies and trims blanks", async () => {
-  const h = harness(() => json(200, { replies: ["a", " ", "b", "c", "d"], link: "L" }));
+test("keeps at most 5 replies and trims blanks", async () => {
+  const h = harness(() => json(200, { replies: ["a", " ", "b", "c", "d", "e", "f"], link: "L" }));
   await handleMessage(msg(), h.deps);
-  assert.deepEqual(h.events.filter((e) => e.startsWith("send:")), ["send:a", "send:b", "send:c", "send:L"]);
+  assert.deepEqual(h.events.filter((e) => e.startsWith("send:")), ["send:a", "send:b", "send:c", "send:d", "send:e", "send:L"]);
 });
 
 test("a 429 sends its detail text", async () => {
@@ -445,4 +445,43 @@ test("taking a vote back, or a vote from us, is ignored", async () => {
     assert.equal(await handleMessage(m, h.deps), "ignored");
     assert.equal(h.calls.length, 0);
   }
+});
+
+test("a tapback reacts to the owner's text before the first bubble; unknown ones and react errors are ignored", async () => {
+  const order: string[] = [];
+  const h = harness(() => json(200, { replies: ["Oh nice!", "Want to see it?"], link: "L", tapback: "love" }), {
+    react: async (e) => void order.push(`react:${e}`),
+    send: async (t) => void order.push(`send:${t}`),
+  });
+  assert.equal(await handleMessage(msg(), h.deps), "replied");
+  assert.deepEqual(order, ["react:❤️", "send:Oh nice!", "send:Want to see it?", "send:L"]);
+
+  for (const tapback of ["wow", 3, null]) {
+    const reacted: string[] = [];
+    const g = harness(() => json(200, { replies: ["a"], link: "L", tapback }), { react: async (e) => void reacted.push(e) });
+    assert.equal(await handleMessage(msg(), g.deps), "replied");
+    assert.deepEqual(reacted, []);
+  }
+
+  const bad = harness(() => json(200, { replies: ["a"], link: "L", tapback: "like" }), {
+    react: async () => {
+      throw new Error("UnsupportedError");
+    },
+  });
+  assert.equal(await handleMessage(msg(), bad.deps), "replied");
+  assert.deepEqual(bad.events, ["send:a", `sleep:${GAP_MS}`, "send:L"]);
+});
+
+test("up to MAX_REPLIES (5) short bubbles go out, with typing dots before each one after the first", async () => {
+  assert.equal(MAX_REPLIES, 5);
+  const order: string[] = [];
+  const h = harness(() => json(200, { replies: ["1", "2", "3", "4", "5", "6"], links: [] }), {
+    typing: async (on) => void order.push(on ? "dots" : "off"),
+    send: async (t) => void order.push(`send:${t}`),
+    sleep: async () => {},
+  });
+  assert.equal(await handleMessage(msg(), h.deps), "replied");
+  assert.deepEqual(order.filter((e) => e !== "off"), [
+    "dots", "send:1", "dots", "send:2", "dots", "send:3", "dots", "send:4", "dots", "send:5",
+  ]);
 });

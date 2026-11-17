@@ -93,10 +93,11 @@ async def test_bundle_hides_password_and_reveal_once(make_client, settings):
     app, c = make_client()
     oid = await new_owner(c)
     p = Workspaces(settings.workspaces).owner_dir(oid) / "setup_chat-a.json"
-    p.write_text(json.dumps({"tool_id": "chat-a", "status": "done", "username": "u", "password": "s3cret-pw", "configured": [], "next_steps": []}))
+    p.write_text(json.dumps({"tool_id": "chat-a", "status": "done", "username": "u", "inbox": "agent@inbox.test", "password": "s3cret-pw", "configured": [], "next_steps": []}))
     r = await c.get(f"/api/owners/{oid}")
     assert "s3cret-pw" not in r.text
     assert r.json()["setups"]["chat-a"]["has_password"] is True
+    assert "username" not in r.json()["setups"]["chat-a"] and "inbox" not in r.json()["setups"]["chat-a"]
     first = await c.get(f"/api/owners/{oid}/password/chat-a")
     assert first.status_code == 200 and first.json()["password"] == "s3cret-pw"
     second = await c.get(f"/api/owners/{oid}/password/chat-a")
@@ -120,12 +121,12 @@ async def test_imessage_rate_limit_429(make_client):
     assert "few seconds" in r2.json()["detail"]
 
 
-async def test_imessage_replies_capped_at_3(make_client):
-    reply = "One.\n\nTwo.\n\nThree.\n\nFour.\n\nFive."
+async def test_imessage_replies_capped_at_5(make_client):
+    reply = "One.\n\nTwo.\n\nThree.\n\nFour.\n\nFive.\n\nSix."
     app, c = make_client(FakeRunner(script(reply=reply)))
     r = await c.post("/api/imessage", json={"from_hash": HASH, "text": "I run a salon"})
     body = r.json()
-    assert len(body["replies"]) <= 3 and body["link"].startswith("https://web.example/b/o_")
+    assert len(body["replies"]) <= 5 and body["link"].startswith("https://web.example/b/o_")
     r_again = await c.post("/api/imessage", json={"from_hash": "b" * 64, "text": "hi"})
     assert r_again.json()["link"] != body["link"]
 
@@ -360,7 +361,7 @@ def test_split_texts_plain_bubbles_and_urls_out():
              "## Local help\n- Maryland SBDC: https://www.marylandsbdc.org\n- [Library](https://lib.example/x) is free.\n\n"
              f"Two.\n\nThree.\n\nFour. {link}")
     texts, urls = split_texts(reply, link)
-    assert len(texts) == 3
+    assert len(texts) == 5
     joined = "\n".join(texts)
     for bad in ("**", "##", "- ", "](", "http"):
         assert bad not in joined
@@ -513,3 +514,9 @@ async def test_imessage_vote_needs_the_relay_secret_and_a_known_option(make_clie
 
 CLOSED = "That question is already answered. Your page has the latest."
 NOT_NOW = "No problem, nothing gets set up. If you change your mind, tap Yes, set it up."
+
+
+def test_split_texts_allows_five_short_bubbles():
+    from msapi.imessage import split_texts
+    parts, _ = split_texts("a\n\nb\n\nc\n\nd\n\ne\n\nf", "L")
+    assert parts == ["a", "b", "c", "d", "e\n\nf"]

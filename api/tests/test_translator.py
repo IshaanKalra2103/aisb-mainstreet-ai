@@ -36,3 +36,18 @@ def test_done_reply_is_only_the_final_result_not_narration_between_tools():
         out += tr(ev)
     done = [e for e in out if e["type"] == "done"]
     assert done == [{"type": "done", "reply": "Which town are you in?"}]
+
+
+def test_a_leading_tapback_line_becomes_a_reaction_not_text():
+    ev = {"type": "result", "subtype": "success", "is_error": False,
+          "result": "tapback: love\n\nOh nice, four cafes!\n\nIs the phone ringing a lot?"}
+    assert Translator()(ev) == [{"type": "done", "reply": "Oh nice, four cafes!\n\nIs the phone ringing a lot?",
+                                 "tapback": "love"}]
+
+
+def test_split_tapback_edges():
+    from msapi.turns import split_tapback
+    assert split_tapback("Tapback: LIKE\nGot it.") == ("Got it.", "like")
+    assert split_tapback("tapback: wow\nhi") == ("hi", None)  # unknown kinds are dropped, never shown
+    assert split_tapback("hi\ntapback: love") == ("hi\ntapback: love", None)  # only a first line counts
+    assert split_tapback("no tapback here") == ("no tapback here", None)

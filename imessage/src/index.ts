@@ -84,7 +84,8 @@ for await (const [space, message] of app.messages) {
     threads.set(hashSender(who), deps);
     outbox?.touch();
   }
-  void handleMessage(message, deps)
+  // Only this message's handler may react to it; the thread's stored deps (pushes) never do.
+  void handleMessage(message, { ...deps, react: (emoji: string) => message.react(emoji) })
     .catch((e) => console.error(`[relay] handler crashed: ${e instanceof Error ? e.name : typeof e}`));
 }
 console.error("[relay] Photon message stream ended");

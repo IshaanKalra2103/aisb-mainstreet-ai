@@ -8,7 +8,7 @@
 import { createHash } from "node:crypto";
 
 export const SORRY = "Sorry, something broke on our side. Try again in a minute.";
-export const GAP_MS = 3_000;
+export const GAP_MS = 1_800; // short bubbles, typing dots in between, like a person texting
 export const TIMEOUT_MS = 300_000; // the API waits up to ~280 s for a turn
 
 /** RELAY_TIMEOUT_MS as a positive number of ms, or undefined to keep TIMEOUT_MS (a cold GCP VM adds ~90 s). */
@@ -17,7 +17,7 @@ export function timeoutFromEnv(v: string | undefined): number | undefined {
   return v && Number.isFinite(n) && n > 0 ? n : undefined;
 }
 export const MAX_TEXT = 2_000; // the API rejects longer texts with a 422
-export const MAX_REPLIES = 3;
+export const MAX_REPLIES = 5;
 export const MAX_VIDEO_BYTES = 25_000_000; // iMessage takes bigger, but this keeps the e2-micro safe
 
 /** The parts of a spectrum-ts `Message` the relay reads. */
@@ -41,6 +41,8 @@ export interface RelayDeps {
   sleep?: (ms: number) => Promise<void>;
   /** Best effort typing indicator while the agent works; failures are ignored. */
   typing?: (on: boolean) => Promise<unknown>;
+  /** Tapback on the owner's text (❤️ 👍 😂 ‼️ ❓), best effort. Only a reply to a text has one to react to. */
+  react?: (emoji: string) => Promise<unknown>;
   log?: (line: string) => void;
   gapMs?: number;
   timeoutMs?: number;
@@ -186,7 +188,10 @@ class RelayError extends Error {}
 
 type Poll = { question: string; options: string[] };
 /** What goes out to a thread: texts 3 s apart, then link cards, the video and the poll. */
-type Out = { replies: string[]; links: string[]; video: string; poll: Poll | null };
+type Out = { replies: string[]; links: string[]; video: string; poll: Poll | null; tapback?: string };
+
+/** The API's tapback names (sandbox/CLAUDE.md) as the iMessage reactions they stand for. */
+export const TAPBACKS: Record<string, string> = { love: "❤️", like: "👍", laugh: "😂", emphasize: "‼️", question: "❓" };
 type ApiResult = ({ kind: "ok" } & Out) | { kind: "limited"; detail: string };
 /** What a turn posts: a text to /api/imessage, or a vote to /api/imessage/vote. */
 type Ask = { text: string } | { poll: string; option: string };
@@ -231,7 +236,8 @@ function outOf(body: any): Out {
     .map((l: string) => l.trim())
     .slice(0, 2);
   const video = typeof body?.video_url === "string" && body.video_url.startsWith("/media/") ? body.video_url : "";
-  return { replies, links, video, poll: pollOf(body?.poll) };
+  const tapback = typeof body?.tapback === "string" ? TAPBACKS[body.tapback] : undefined;
+  return { replies, links, video, poll: pollOf(body?.poll), ...(tapback && { tapback }) };
 }
 
 /** Error name or our own safe message. Never the raw message, which could echo user data. */
@@ -306,6 +312,8 @@ async function relayTurn(senderId: string, ask: Ask, deps: RelayDeps): Promise<O
       out = r;
       outcome = "replied";
     }
+    // React to their text the way a person would, just before the reply bubbles.
+    if (out.tapback && "text" in ask) await quietly(() => deps.react?.(out.tapback!));
   } catch (e) {
     log(`[err] ${tag} ${describe(e)}`);
     out = { replies: [SORRY], links: [], video: "", poll: null };
@@ -337,6 +345,7 @@ async function sendOut(out: Out, senderId: string | null, tag: string, deps: Rel
       if (n++ > 0) await sleep(gap);
     };
     for (const t of out.replies) {
+      if (n > 0) void quietly(() => deps.typing?.(true)); // dots before the next bubble; never holds up the send
       await pace();
       await deps.send(t);
     }
