@@ -95,15 +95,33 @@ def longevity(domain: str, name: str, rdap=rdap_created, search=_search, today: 
     return Signal(points=0, max=15, value=value, evidence_url=rdap_url if created else None)
 
 
+_NEGATION = re.compile(r"\b(not|never|no(?!-)|neither|nor|without|doesn't|don't)\b", re.I)
+_TRAIN = re.compile(r"\b(train|trains|trained|training|improve|improving)\b", re.I)
+
+
+def training_stance(facts: dict) -> str | None:
+    """"no" (does not train on customer data), "yes" (does), or None (unclear). The extractor's
+    trains_on_customer_data flag wins; older records only have the quoted sentence, so read that."""
+    flag = facts.get("trains_on_customer_data")
+    if flag is not None:
+        return "yes" if flag else "no"
+    stmt = facts.get("training_statement") or ""
+    if not facts.get("privacy_states_training_use") or not _TRAIN.search(stmt):
+        return None
+    return "no" if _NEGATION.search(stmt) else "yes"
+
+
 def data_handling(facts: dict, evidence: dict) -> Signal:
     url = evidence.get("privacy_url")
     extra = "; SOC 2 or similar stated" if facts.get("soc2") else ""
-    if url and facts.get("privacy_states_training_use"):
-        stmt = facts.get("training_statement") or "states whether customer data trains models"
-        return Signal(points=20, max=20, value=f"privacy policy: {stmt[:140]}{extra}", evidence_url=url)
-    if url:
-        return Signal(points=10, max=20, value=f"privacy policy, silent on model training{extra}", evidence_url=url)
-    return Signal(points=0, max=20, value="no privacy policy found", evidence_url=None)
+    if not url:
+        return Signal(points=0, max=20, value="no privacy policy found", evidence_url=None)
+    stance, stmt = training_stance(facts), (facts.get("training_statement") or "").strip()
+    if stance == "no":
+        return Signal(points=20, max=20, value=f"privacy policy: {stmt[:140] or 'says customer data does not train models'}{extra}", evidence_url=url)
+    if stance == "yes":
+        return Signal(points=5, max=20, value=f"privacy policy says it trains on customer data: {stmt[:120]}{extra}", evidence_url=url)
+    return Signal(points=10, max=20, value=f"privacy policy, silent or unclear on model training{extra}", evidence_url=url)
 
 
 def pricing(price: dict, facts: dict, evidence: dict) -> Signal:

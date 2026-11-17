@@ -22,3 +22,17 @@ def test_done_reply_has_no_markdown():
           "result": "## Try this first\nI'd try a **website chat helper**. My pick is __Chat-A__.\n- free plan"}
     assert Translator()(ev) == [{"type": "done",
                                  "reply": "Try this first\nI'd try a website chat helper. My pick is Chat-A.\n- free plan"}]
+
+
+def test_done_reply_is_only_the_final_result_not_narration_between_tools():
+    """Narration written between tool calls is never part of the reply: only the result event is."""
+    tr = Translator()
+    out = []
+    for ev in (_assistant_text("The site failed, so I'll ask two short questions per the intake rules."),
+               {"type": "assistant", "message": {"content": [
+                   {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "tf fetch https://x.example"}}]}},
+               _assistant_text("Which town are you in?"),
+               {"type": "result", "subtype": "success", "is_error": False, "result": "Which town are you in?"}):
+        out += tr(ev)
+    done = [e for e in out if e["type"] == "done"]
+    assert done == [{"type": "done", "reply": "Which town are you in?"}]

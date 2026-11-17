@@ -423,3 +423,92 @@ def test_docker_runner_passes_the_inbox_base_by_name(settings):
     # setup's `inbox create` hands out plus-addresses of this inbox (AgentMail's free plan holds 3 inboxes)
     cmd = DockerRunner(settings).command("o_1234567890", "hello", "sid-1", resume=False)
     assert "MS_INBOX_BASE" in cmd and cmd[cmd.index("MS_INBOX_BASE") - 1] == "-e"
+
+
+def test_split_texts_strips_numbered_list_markers():
+    from msapi.imessage import split_texts
+    texts, _ = split_texts("Try these.\n\n1. A chatbot\n2) A booking page", "L")
+    assert texts == ["Try these.", "A chatbot\nA booking page"]
+
+
+# iMessage polls: a pending approval is offered once as a native yes/no poll; a vote decides it like the page's buttons.
+YES, NO = "Yes, set it up", "Not now"
+
+
+async def test_imessage_offers_a_pending_approval_once_as_a_poll(make_client, settings):
+    app, c = make_client()
+    app.state.imessage.min_gap = 0
+    oid = app.state.ws.owner_for_phone(HASH)
+    write_approval(settings, oid)
+    first = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "set it up"})).json()
+    assert first["poll"] == {"question": "Set up chat-a for you?", "options": [YES, NO]}
+    again = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "ok"})).json()
+    assert again["poll"] is None
+
+
+async def test_imessage_poll_uses_the_catalog_name(make_client, settings):
+    (settings.root / "sandbox").mkdir()
+    (settings.root / "sandbox" / "catalog.json").write_text(json.dumps({"tools": [{"id": "chat-a", "name": "Chatling"}]}))
+    app, c = make_client()
+    write_approval(settings, app.state.ws.owner_for_phone(HASH))
+    body = (await c.post("/api/imessage", json={"from_hash": HASH, "text": "go"})).json()
+    assert body["poll"]["question"] == "Set up Chatling for you?"
+
+
+async def test_imessage_vote_yes_approves_and_runs_the_turn(make_client, settings):
+    runner = FakeRunner(script(reply="Setting up Chatling now."))
+    app, c = make_client(runner)
+    oid = app.state.ws.owner_for_phone(HASH)
+    write_approval(settings, oid)
+    r = await c.post("/api/imessage/vote", json={"from_hash": HASH, "poll": "Set up chat-a for you?", "option": YES})
+    assert r.status_code == 200 and r.json()["replies"] == ["Setting up Chatling now."]
+    assert "Owner approved approval ap_1" in runner.calls[0]["prompt"]
+    ws = Workspaces(settings.workspaces)
+    assert json.loads((ws.owner_dir(oid) / "approvals" / "ap_1.json").read_text())["status"] == "approved"
+    assert json.loads((ws.decisions_dir(oid) / "ap_1.json").read_text())["status"] == "approved"
+
+
+async def test_imessage_vote_not_now_rejects(make_client, settings):
+    runner = FakeRunner(script())
+    app, c = make_client(runner)
+    oid = app.state.ws.owner_for_phone(HASH)
+    write_approval(settings, oid)
+    r = await c.post("/api/imessage/vote", json={"from_hash": HASH, "poll": "Set up chat-a for you?", "option": NO})
+    assert r.status_code == 200 and "Owner rejected approval ap_1" in runner.calls[0]["prompt"]
+    assert json.loads((Workspaces(settings.workspaces).owner_dir(oid) / "approvals" / "ap_1.json").read_text())["status"] == "rejected"
+
+
+async def test_imessage_vote_only_reaches_the_voters_own_approval(make_client, settings):
+    runner = FakeRunner(script())
+    app, c = make_client(runner)
+    oid = app.state.ws.owner_for_phone(HASH)
+    write_approval(settings, oid)
+    r = await c.post("/api/imessage/vote", json={"from_hash": "b" * 64, "poll": "Set up chat-a for you?", "option": YES})
+    assert r.status_code == 200 and r.json()["replies"] == [CLOSED]
+    assert runner.calls == []
+    assert json.loads((Workspaces(settings.workspaces).owner_dir(oid) / "approvals" / "ap_1.json").read_text())["status"] == "pending"
+
+
+async def test_imessage_vote_on_a_decided_approval_says_so(make_client, settings):
+    runner = FakeRunner(script())
+    app, c = make_client(runner)
+    app.state.imessage.min_gap = 0
+    oid = app.state.ws.owner_for_phone(HASH)
+    write_approval(settings, oid)
+    vote = {"from_hash": HASH, "poll": "Set up chat-a for you?", "option": YES}
+    assert (await c.post("/api/imessage/vote", json=vote)).status_code == 200
+    again = await c.post("/api/imessage/vote", json=vote)
+    assert again.status_code == 200 and again.json()["replies"] == [CLOSED]
+    assert len(runner.calls) == 1
+
+
+async def test_imessage_vote_needs_the_relay_secret_and_a_known_option(make_client, settings):
+    settings.relay_secret = "relay-s3cret"
+    app, c = make_client()
+    vote = {"from_hash": HASH, "poll": "Set up chat-a for you?", "option": YES}
+    assert (await c.post("/api/imessage/vote", json=vote)).status_code == 401
+    bad = {**vote, "option": "Maybe"}
+    assert (await c.post("/api/imessage/vote", json=bad, headers={"x-relay-secret": "relay-s3cret"})).status_code == 422
+
+
+CLOSED = "That question is already answered. Your page has the latest."

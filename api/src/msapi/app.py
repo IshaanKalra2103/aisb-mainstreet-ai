@@ -41,6 +41,12 @@ class IMessageIn(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
 
 
+class VoteIn(BaseModel):
+    from_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    poll: str = Field(min_length=1, max_length=300)
+    option: Literal["Yes, set it up", "Not now"]
+
+
 def docker_ready(image: str) -> bool:
     try:
         return subprocess.run(["docker", "image", "inspect", image], capture_output=True, timeout=5).returncode == 0
@@ -174,6 +180,15 @@ def create_app(runner: Runner | None = None, settings: Settings | None = None,
             raise HTTPException(401, "Unknown relay")
         try:
             return await app.state.imessage.handle(body.from_hash, body.text.strip())
+        except RateLimited as e:
+            raise HTTPException(429, str(e))
+
+    @app.post("/api/imessage/vote")
+    async def imessage_vote(body: VoteIn, request: Request):
+        if s.relay_secret and not secrets.compare_digest(request.headers.get("x-relay-secret", ""), s.relay_secret):
+            raise HTTPException(401, "Unknown relay")
+        try:
+            return await app.state.imessage.vote(body.from_hash, body.poll, body.option)
         except RateLimited as e:
             raise HTTPException(429, str(e))
 

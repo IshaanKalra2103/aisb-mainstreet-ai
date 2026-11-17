@@ -6,9 +6,12 @@ from datetime import date
 
 from .settings import Settings
 from .turns import LimitReached, TurnManager
-from .workspaces import Workspaces
+from .workspaces import NotFound, Workspaces, _read, _write
 
 MAX_TEXTS = 3
+# Native iMessage poll for a pending approval. The vote decides it the way the page's buttons do.
+YES, NO = "Yes, set it up", "Not now"
+CLOSED = "That question is already answered. Your page has the latest."
 
 
 class RateLimited(Exception):
@@ -36,7 +39,7 @@ def split_texts(reply: str, link: str) -> tuple[list[str], list[str]]:
     text = MD_LINK_RE.sub(lambda m: (grab(m[2]) or "") + m[1], text)
     text = URL_RE.sub(lambda m: grab(m[0]), text)
     text = re.sub(r"\*\*(.+?)\*\*|__(.+?)__", lambda m: m[1] or m[2], text)
-    text = re.sub(r"(?m)^[ \t]*(?:#{1,6}[ \t]+|[-*\u2022][ \t]+)", "", text).replace("`", "")
+    text = re.sub(r"(?m)^[ \t]*(?:#{1,6}[ \t]+|(?:[-*\u2022]|\d{1,2}[.)])[ \t]+)", "", text).replace("`", "")
     text = re.sub(r"(?m)[ \t]*[:\-\u2013]+[ \t]*$", "", text)  # "Maryland SBDC:" left behind by a pulled URL
     text = re.sub(r"[ \t]{2,}", " ", text)
     parts = [p.strip() for p in re.split(r"\n\s*\n", text)]
@@ -71,7 +74,33 @@ class IMessage:
         except OSError:
             return True
 
-    async def handle(self, from_hash: str, text: str) -> dict:
+    def _tool_name(self, tool_id: str) -> str:
+        """The catalog's name for a tool (the agent's catalog), else its id."""
+        try:
+            tools = json.loads((self.s.root / "sandbox" / "catalog.json").read_text()).get("tools", [])
+            return next((t["name"] for t in tools if t.get("id") == tool_id and t.get("name")), tool_id)
+        except (OSError, ValueError, AttributeError, TypeError):
+            return tool_id
+
+    def _question(self, ap: dict) -> str:
+        return f"Set up {self._tool_name(ap.get('tool_id', ''))} for you?"
+
+    def _pending(self, oid: str) -> list[dict]:
+        d = self.ws.owner_dir(oid) / "approvals"
+        aps = [a for f in sorted(d.glob("ap_*.json")) if (a := _read(f))] if d.exists() else []
+        return sorted((a for a in aps if a.get("status") == "pending"), key=lambda a: a.get("created_at", ""))
+
+    def _offer(self, oid: str) -> dict | None:
+        """The oldest pending approval not yet offered here, as a poll. Each approval is offered once."""
+        p = self.ws.owner_dir(oid) / ".offered.json"
+        offered = set(_read(p) or [])
+        ap = next((a for a in self._pending(oid) if a.get("id") not in offered), None)
+        if not ap:
+            return None
+        _write(p, sorted(offered | {ap["id"]}))
+        return {"question": self._question(ap), "options": [YES, NO]}
+
+    def _guard(self, from_hash: str) -> None:
         now = time.monotonic()
         if from_hash in self.last and now - self.last[from_hash] < self.min_gap:
             raise RateLimited("Give me a few seconds between texts.")
@@ -79,14 +108,47 @@ class IMessage:
         if self.counts.get(key, 0) >= self.per_day:
             raise RateLimited("That's all for today, try again tomorrow.")
         self.last[from_hash] = now
-        t0 = time.time()
         self.counts[key] = self.counts.get(key, 0) + 1
+
+    async def handle(self, from_hash: str, text: str) -> dict:
+        self._guard(from_hash)
+        t0 = time.time()
         oid = self.ws.owner_for_phone(from_hash)
-        link = f"{self.s.web_url}/b/{oid}"
         try:
             tid = self.turns.start(oid, text, "imessage")
         except LimitReached as e:  # busy owner, full queue, daily cap: the relay texts the detail back
             raise RateLimited(str(e))
+        return await self._reply(oid, tid, t0)
+
+    async def vote(self, from_hash: str, question: str, option: str) -> dict:
+        """A vote on our poll. It can only decide a pending approval of the voter's own owner."""
+        self._guard(from_hash)
+        t0 = time.time()
+        oid = self.ws.owner_for_phone(from_hash)
+        link = f"{self.s.web_url}/b/{oid}"
+        ap = next((a for a in self._pending(oid) if self._question(a) == question), None)
+        if not ap:
+            return {"replies": [CLOSED], "link": link, "links": [link], "video_url": None, "poll": None}
+        decision = "approve" if option == YES else "reject"
+        # As in the page's decide route: no await between the checks and the write.
+        try:
+            self.ws.pending_approval(oid, ap["id"])
+            self.turns.check(oid)
+            ap = self.ws.decide(oid, ap["id"], decision)
+        except (ValueError, NotFound):
+            return {"replies": [CLOSED], "link": link, "links": [link], "video_url": None, "poll": None}
+        except LimitReached as e:
+            raise RateLimited(str(e))
+        word = "approved" if decision == "approve" else "rejected"
+        shown = f"{'Approved' if word == 'approved' else 'Declined'}: {ap['summary']}"
+        try:
+            tid = self.turns.start(oid, f"Owner {word} approval {ap['id']}", "imessage", log_text=shown)
+        except LimitReached as e:
+            raise RateLimited(str(e))
+        return await self._reply(oid, tid, t0)
+
+    async def _reply(self, oid: str, tid: str, t0: float) -> dict:
+        link = f"{self.s.web_url}/b/{oid}"
         urls: list[str] = []
         ev = await self.turns.wait(tid, self.wait_s)
         if ev is None:
@@ -95,7 +157,8 @@ class IMessage:
             replies = ["Something went wrong on my side. Try again in a minute."]
         else:
             replies, urls = split_texts(ev["reply"], link)
-        # Rich extras for the relay: link cards (page first) and the preview video this turn made, if any.
+        # Rich extras for the relay: link cards (page first), the preview video this turn made, and a poll for a
+        # pending approval.
         video = None
         if ev and ev["type"] == "done":
             new = [f for f in self.ws.owner_dir(oid).glob("preview_*.mp4") if f.stat().st_mtime >= t0]
@@ -103,4 +166,4 @@ class IMessage:
                 video = f"/media/{oid}/{max(new, key=lambda f: f.stat().st_mtime).name}"
         first = f"{link}/shop" if self._needs_shop(oid) else link
         links = list(dict.fromkeys([first, *urls]))  # the agent may paste the share URL too
-        return {"replies": replies, "link": link, "links": links, "video_url": video}
+        return {"replies": replies, "link": link, "links": links, "video_url": video, "poll": self._offer(oid)}

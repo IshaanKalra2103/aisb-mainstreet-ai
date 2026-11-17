@@ -21,6 +21,7 @@ class Facts(BaseModel):
     address: str | None = None
     privacy_states_training_use: bool = False
     training_statement: str = ""
+    trains_on_customer_data: bool | None = None  # True: it trains on customer data; False: it says it does not
     prices_public: bool = False
     contact_sales_only: bool = False
     free_trial: bool = False
@@ -116,6 +117,8 @@ If is_tool is true, fill tool (otherwise tool is null). Rules:
 - facts: only what the pages state. company: the legal or company name. people: named founders or leaders.
   address: a physical postal address (street or city and state). privacy_states_training_use: true if the privacy page
   says whether customer data is used to train AI models (either way); training_statement: that sentence, short.
+  trains_on_customer_data: true if that statement says customer data IS used to train or improve models, false if it says
+  it is NOT, null if unclear.
   prices_public: real prices are listed. contact_sales_only: prices are only "contact us". free_trial: a free trial is
   offered. soc2: SOC 2, ISO 27001 or a similar audit is stated.
 

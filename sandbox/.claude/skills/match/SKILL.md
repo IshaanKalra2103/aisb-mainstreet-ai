@@ -14,3 +14,4 @@ description: Pick 3 to 5 jobs AI can take off this owner's plate and save the ne
 4. Write the JSON with the Write tool (never `cat`, `echo` or a heredoc) to `/work/tmp/needs.json`, then
    `ws save needs /work/tmp/needs.json`. Shape (the key is `items`, 3 to 5 of them):
    `{"items": [{"need_id": "website-chat", "title": "...", "why": "...", "est_hours_saved_week": 2}]}`
+5. Then follow the `compare` skill for each job, top one first, saving each compare as you go.

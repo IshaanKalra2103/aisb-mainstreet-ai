@@ -13,5 +13,6 @@ description: Compare up to 3 vetted tools for one job and save the compare recor
 4. Write the JSON with the Write tool (never `cat`, `echo` or a heredoc) to `/work/tmp/compare.json`, then
    `ws save compare /work/tmp/compare.json`. Shape (the key is `options`, 1 to 3 of them):
    `{"need_id": "website-chat", "options": [{"tool_id": "...", "fit_sentence": "...", "works_with": ["website"]}], "recommended_tool_id": "..."}`
-5. In your reply name the recommended tool, its price, and why, in two or three sentences. Mention the trust badge in
+5. In your reply name the recommended tool, its price, and why, in two or three sentences. After comparing several
+   jobs in one turn, name only the top job's pick: the owner's page shows the rest. Mention the trust badge in
    plain words ("verified by our team", "use with caution").

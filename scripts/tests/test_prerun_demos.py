@@ -178,9 +178,10 @@ def test_should_skip(tmp_path):
 
 
 def test_hand_made_placeholder_is_not_skipped(tmp_path):
-    # The hand-made coffee.json has no media map: a real run replaces it.
-    placeholder = json.loads((ROOT / "web/data/demo/coffee.json").read_text())
-    assert "media" not in placeholder
+    # A hand-made bundle has no media map, so a real run replaces it. (web/data/demo/coffee.json used to be one;
+    # bd7f4b6 replaced it with a real run, so the placeholder is built here.)
+    placeholder, _ = demo("coffee")
+    del placeholder["media"]
     (tmp_path / "coffee.json").write_text(json.dumps(placeholder))
     assert pd.should_skip(tmp_path, "coffee", force=False) is False
 

@@ -52,3 +52,31 @@ def test_review_skips_sponsored_rating():
     text = "Chatling Features See all 79 Chatling reviews. AI Verified. Gemini. Sponsored. Gemini. 4.4/5(617) ..."
     assert vet.parse_review_snippet(text, near=vet._name_re("Chatling")) is None
     assert vet.parse_review_snippet("By Chatling 4.7/5(79) Read Chatling Reviews", near=vet._name_re("Chatling")) == (4.7, 79)
+
+
+def _dh(stated, statement="", url="https://x.com/privacy", **extra):
+    return vet.data_handling({"privacy_states_training_use": stated, "training_statement": statement, **extra},
+                             {"privacy_url": url})
+
+
+def test_data_handling_ranks_no_training_over_silent_over_training():
+    no_train = _dh(True, "We do not use customer data to train AI models.")
+    silent = _dh(False)
+    trains = _dh(True, "We use your data to train and improve our AI models.")
+    assert no_train.points == 20
+    assert trains.points < silent.points < no_train.points
+    assert "trains" in trains.value.lower()
+
+
+def test_data_handling_explicit_flag_wins_over_text():
+    assert _dh(True, "Anything.", trains_on_customer_data=True).points < _dh(False).points
+    assert _dh(True, "Anything.", trains_on_customer_data=False).points == 20
+
+
+def test_data_handling_stated_but_no_statement_is_not_penalised_or_rewarded_blindly():
+    # No sentence to read: treat as unclear, same as silent.
+    assert _dh(True, "").points == _dh(False).points
+
+
+def test_data_handling_no_show_is_not_a_negation():
+    assert _dh(True, "We use data to train and improve our AI features, including no-show prediction models.").points == 5
