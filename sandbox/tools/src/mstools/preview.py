@@ -19,7 +19,7 @@ from pathlib import Path
 
 import httpx
 
-from . import browseruse, config, ws
+from . import browseruse, config, opener, ws
 from .budget import BudgetExceeded, bump_count, charge, spent
 from .cli import ToolError, log, run
 from .player import PLAYER_JS
@@ -281,6 +281,8 @@ def record(tool: str, html_path: str) -> dict:
 
 
 def _main(a: argparse.Namespace) -> dict:
+    if (r := opener.handle(a)) is not None:
+        return r
     if a.cmd == "record":
         return record(a.tool, a.html)
     if a.cmd == "site-info":
@@ -295,6 +297,7 @@ def _main(a: argparse.Namespace) -> dict:
 def main() -> None:
     p = argparse.ArgumentParser(prog="preview", description="Make a short preview video of a tool.")
     sub = p.add_subparsers(dest="cmd", required=True)
+    opener.register(sub)
     m = sub.add_parser("make")
     m.add_argument("--tool", required=True)
     m.add_argument("--prompt", required=True)

@@ -155,9 +155,9 @@
    "tool_id": "apaya",
    "prompt": "Inside a cozy brick-walled coffee shop in Frederick, Maryland, warm natural morning light, a phone on a small stand photographs a fresh latte and a butter croissant on the counter as today's special; the finished social post appears on the phone screen, the owner glances over and smiles. Documentary style, one scene, no logos, minimal text.",
    "status": "completed",
-   "video_file": "apaya.mp4",
+   "video_file": "apaya-screen.mp4",
    "cost_usd": 0.18,
-   "video_url": "/demo-media/coffee/apaya.mp4"
+   "video_url": "/demo-media/coffee/apaya-screen.mp4"
   }
  },
  "setups": {},
@@ -219,12 +219,12 @@
   },
   {
    "role": "agent",
-   "text": "Your preview of Apaya is ready, and it's on your page. It shows a phone on a stand photographing a latte and a croissant at a brick-walled coffee shop. The finished Instagram post then appears on the screen.\n\nThis is an illustration of the idea. It isn't a recording of the real tool.\n\nApaya is verified by our team. It costs from $55 a month, and the 3-day trial asks for a card. We can't set it up for you. You can sign up at https://apaya.com/pricing. For a hand with it, try Maryland SBDC (https://www.marylandsbdc.org).\n\nWant to go ahead with the Chatling website chat instead, since we can set that one up?",
+   "text": "Your preview of Apaya is ready, and it's on your page. It shows how Apaya would work for you: you type \"butter croissant + latte\" and it drafts today's post from your own menu, with the $3.75 croissant, the $5.00 latte, your hours and your Market Street address.\n\nThe phone screen is our mock-up of the idea, not Apaya's real app.\n\nApaya is verified by our team. It costs from $55 a month, and the 3-day trial asks for a card. We can't set it up for you. You can sign up at https://apaya.com/pricing. For a hand with it, try Maryland SBDC (https://www.marylandsbdc.org).\n\nWant to go ahead with the Chatling website chat instead, since we can set that one up?",
    "channel": "web",
    "at": "2026-11-09T01:28:16+00:00"
   }
  ],
  "media": {
-  "apaya": "/demo-media/coffee/apaya.mp4"
+  "apaya": "/demo-media/coffee/apaya-screen.mp4"
  }
 }

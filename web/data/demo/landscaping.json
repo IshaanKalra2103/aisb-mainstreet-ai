@@ -136,9 +136,9 @@
    "tool_id": "quoteiq",
    "prompt": "A landscaping owner in work gloves sits on the tailgate of a truck beside a freshly mulched garden in Annapolis, finishing an invoice in seconds on a tablet and tapping send; warm natural morning light, documentary style, one scene, no logos",
    "status": "completed",
-   "video_file": "quoteiq.mp4",
+   "video_file": "quoteiq-full.mp4",
    "cost_usd": 0.18,
-   "video_url": "/demo-media/landscaping/quoteiq.mp4"
+   "video_url": "/demo-media/landscaping/quoteiq-full.mp4"
   }
  },
  "setups": {},
@@ -200,12 +200,12 @@
   },
   {
    "role": "agent",
-   "text": "Your preview of QuoteIQ is ready, and it's on your page. QuoteIQ is the top pick for Invoicing and bookkeeping.\n\nIt shows a landscaper on a truck tailgate, next to a freshly mulched garden. They finish an invoice on a tablet and send it in seconds. This is an illustration, not a recording of the real app.\n\nQuoteIQ costs from $29.99 a month, with a 14-day free trial. It's verified by our team. We can't set it up for you, so you'd sign up yourself at https://myquoteiq.com/pricing/. A local helper can also walk you through it: Maryland SBDC (https://www.marylandsbdc.org).",
+   "text": "Your preview of QuoteIQ is ready, and it's on your page. QuoteIQ is the top pick for Invoicing and bookkeeping.\n\nIt opens on your garden photo, brought to life by AI. Then you type \"cleanup, mulch, hedges\" and QuoteIQ writes the quote from your own price list: cleanup from $275, mulch $85 a yard, hedge trimming from $120. The same app turns it into the invoice when the job is done. The phone screen is our mock-up, not QuoteIQ's real app.\n\nQuoteIQ costs from $29.99 a month, with a 14-day free trial. It's verified by our team. We can't set it up for you, so you'd sign up yourself at https://myquoteiq.com/pricing/. A local helper can also walk you through it: Maryland SBDC (https://www.marylandsbdc.org).",
    "channel": "web",
    "at": "2026-11-09T01:30:03+00:00"
   }
  ],
  "media": {
-  "quoteiq": "/demo-media/landscaping/quoteiq.mp4"
+  "quoteiq": "/demo-media/landscaping/quoteiq-full.mp4"
  }
 }

@@ -17,7 +17,10 @@
   ],
   "summary": "A three-stylist salon in Westminster, MD that takes bookings by phone and a paper appointment book.",
   "facts": [
-    { "text": "13 of 40 Google Maps listings near Westminster show \"Book online\"", "source_url": "https://www.google.com/maps/search/hair+salon+Westminster+MD" }
+   {
+    "text": "13 of 40 Google Maps listings near Westminster show \"Book online\"",
+    "source_url": "https://www.google.com/maps/search/hair+salon+Westminster+MD"
+   }
   ]
  },
  "needs": {
@@ -129,9 +132,9 @@
    "tool_id": "square",
    "prompt": "A client books a haircut appointment on her phone at night on her couch; next morning the salon owner, a stylist in her 40s, sees the day's schedule on a tablet at the front desk of a small town hair salon, warm natural light, documentary style, no logos",
    "status": "completed",
-   "video_file": "square.mp4",
+   "video_file": "square-full.mp4",
    "cost_usd": 0.0,
-   "video_url": "/demo-media/salon/square.mp4"
+   "video_url": "/demo-media/salon/square-full.mp4"
   }
  },
  "setups": {},
@@ -193,12 +196,12 @@
   },
   {
    "role": "agent",
-   "text": "Your Square preview is ready on your page. It shows a client booking a haircut on her phone at night. The next morning, the salon owner sees the day's schedule on a tablet at the front desk.\n\nIt's a short illustration, not your real screen.\n\nWe can't set Square up for you. Its sign-up link is https://squareup.com/us/en/pricing. Setup takes about 45 minutes, and you can start on the free plan. If you'd like help, these local groups are free:\n\n- Maryland SBDC: https://www.marylandsbdc.org\n- SCORE: https://www.score.org/find-mentor\n\nDon't enter a card or pick a paid plan unless you decide to. Do you want to look at review replies next?",
+   "text": "Your Square preview is ready on your page. It opens on your salon, brought to life by AI from your photo. Then Square booking works on your own website: a client picks Saturday at 10:30 and the booking is confirmed, no phone call needed.\n\nThe booking window is our mock-up, not Square's real one.\n\nWe can't set Square up for you. Its sign-up link is https://squareup.com/us/en/pricing. Setup takes about 45 minutes, and you can start on the free plan. If you'd like help, these local groups are free:\n\n- Maryland SBDC: https://www.marylandsbdc.org\n- SCORE: https://www.score.org/find-mentor\n\nDon't enter a card or pick a paid plan unless you decide to. Do you want to look at review replies next?",
    "channel": "web",
    "at": "2026-11-09T01:31:42+00:00"
   }
  ],
  "media": {
-  "square": "/demo-media/salon/square.mp4"
+  "square": "/demo-media/salon/square-full.mp4"
  }
 }

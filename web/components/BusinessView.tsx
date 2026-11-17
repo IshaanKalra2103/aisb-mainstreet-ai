@@ -16,6 +16,8 @@ import ReadingSite from "./ReadingSite";
 import { jobPhoto, placePhoto, siteLogo } from "@/lib/places";
 import ToolLogo from "./ToolLogo";
 import Sheet from "./Sheet";
+import Tour from "./Tour";
+import { TOURS } from "@/data/demo/tours";
 
 type Preview = OwnerBundle["previews"][string];
 type CardDef =
@@ -168,6 +170,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   const [sheet, setSheet] = useState<SheetState>(null);
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [tour, setTour] = useState(false);
   const closeRef = useRef<(() => void) | null>(null);
   const params = useSearchParams();
   // /b/<owner>#setup (the link in our texts) opens the Setup tab, on load and when the hash changes.
@@ -178,6 +181,9 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
     return () => window.removeEventListener("hashchange", fromHash);
   }, []);
   const initialTurn = params.get("turn");
+  // ?tour=1 opens the guided tour straight away (the projector link), on example pages only.
+  const wantTour = !!demo && params.get("tour") === "1";
+  useEffect(() => { if (wantTour) setTour(true); }, [wantTour]);
   // The site the owner pasted on the landing page, for the wait screen's title.
   const site = params.get("site");
 
@@ -428,7 +434,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
             <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-3">
               <Pill onPhoto>Job {c.n} of {items.length}</Pill>
               {src && c.preview && (
-                <button type="button" aria-label={`Watch the preview of ${tool?.name ?? "this tool"}, made with AI`}
+                <button type="button" data-tour-action="preview" aria-label={`Watch the preview of ${tool?.name ?? "this tool"}, made with AI`}
                   onClick={() => setSheet({ kind: "preview", preview: c.preview!, name: tool?.name ?? c.preview!.tool_id })}
                   className="flex items-center gap-1.5 rounded-full glass px-3 py-1 text-sm font-semibold active:scale-95 transition-transform">
                   {Icon.playSm}Watch the AI preview
@@ -455,7 +461,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
                   <span className="text-sm font-semibold tabular-nums">{tool.trust.score}/100</span>
                 </div>
                 <div className="mt-2 sm:mt-2.5 flex flex-wrap gap-2">
-                  <button type="button" className="chip-btn" onClick={() => setSheet({ kind: "compare", need: c.need })}>Compare tools</button>
+                  <button type="button" data-tour-action="compare" className="chip-btn" onClick={() => setSheet({ kind: "compare", need: c.need })}>Compare tools</button>
                   <button type="button" className="chip-btn" onClick={() => setSheet({ kind: "trust", tool })}>Why we trust it</button>
                 </div>
               </div>
@@ -469,7 +475,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
             )}
             {actionError && <p role="alert" className="mt-2 rounded-xl bg-err-tint px-3 py-2 font-semibold text-brick">{actionError}</p>}
           </div>
-          <div className="shrink-0 flex gap-2 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
+          <div data-tour="decide" className="shrink-0 flex gap-2 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
             <BigButton icon={Icon.x} label="Not now" onClick={() => (at < cards.length - 1 ? go(at + 1) : show("setup"))} />
             <BigButton icon={Icon.check} label={busy ? "One moment" : "Set it up"} primary disabled={busy || offline} onClick={() => setItUp(tool?.id)} />
           </div>
@@ -558,10 +564,11 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         <div>
           <p className="eyebrow truncate">{demo ? "Example business" : "Your business"}</p>
           <h1 className="mt-1 text-[1.9rem] sm:text-[2.2rem] xl:text-[2.6rem] font-semibold leading-[1.05] text-balance">{profile?.name ?? "Getting to know your business"}</h1>
+          {demo && <button type="button" onClick={() => setTour(true)} className="btn btn-secondary !min-h-11 !px-5 mt-3">Take the tour</button>}
 
           {/* What we understood about the shop: part of the page, not a card, so the job cards below stand apart from it. */}
           {profile && (
-            <section aria-label="Your business" className="mt-4">
+            <section aria-label="Your business" data-tour="facts" className="mt-4">
               <ShopArt key={`${shopPhoto}|${shopLogo}`} photo={shopPhoto} logo={shopLogo} name={profile.name} />
               <p className="mt-4 eyebrow">{profile.facts?.length ? "What we found about your shop" : "Here's what we understood"}</p>
               <p className="mt-1 text-lg text-muted">{BUSINESS_TYPE_LABELS[profile.business_type] ?? profile.business_type} in {profile.city}, {profile.state}</p>
@@ -591,7 +598,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
           )}
 
           {items.length > 0 && (
-            <ul aria-label="At a glance" className="mt-4 grid grid-cols-3 gap-2 border-y border-line py-4 text-center">
+            <ul aria-label="At a glance" data-tour="jobs" className="mt-4 grid grid-cols-3 gap-2 border-y border-line py-4 text-center">
               <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums">{items.length}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">jobs for AI</span></li>
               <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums text-accent">{hours}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">hours back a week</span></li>
               <li><span className="block font-display text-[2.5rem] leading-none font-medium tabular-nums">{catalog.tools.length}</span><span className="block mt-1.5 text-sm leading-tight text-muted whitespace-nowrap">tools checked</span></li>
@@ -619,7 +626,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
               </div>
               <div role="group" aria-label="How to see your jobs" className="mt-3 grid grid-cols-3 gap-1 rounded-full bg-grey-tint p-1">
                 {TABS.map((t) => (
-                  <button key={t.id} type="button" aria-pressed={mode === t.id} onClick={() => setMode(t.id)}
+                  <button key={t.id} type="button" data-tour-action={`tab-${t.id}`} aria-pressed={mode === t.id} onClick={() => setMode(t.id)}
                     className={`flex h-10 items-center justify-center gap-1.5 rounded-full text-base font-semibold transition-[background-color,color] duration-150 ${mode === t.id ? "bg-card text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
                     {t.label}
                     {t.id === "setup" && streams.length > 0 && (
@@ -648,7 +655,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
                 <Link href="/demo" className="btn btn-primary mt-4">See the example businesses</Link>
               </div>
             ) : mode === "setup" ? (
-              <section aria-label="Setup" className="mt-5 grid gap-4">{renderSetup()}</section>
+              <section aria-label="Setup" data-tour="setup" className="mt-5 grid gap-4">{renderSetup()}</section>
             ) : mode === "overview" ? (
               <div className="mt-5">
                 <ol aria-label="All jobs" className="grid gap-3">
@@ -694,6 +701,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
                   <AnimatePresence initial={false} mode="popLayout" custom={dir}>
                     <motion.article
                       key={current.key}
+                      data-tour="top-job"
                       layoutId={current.key}
                       custom={dir}
                       variants={{
@@ -730,10 +738,12 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         {Icon.chat}<span>Ask us</span>
       </button>}
 
+      {demo && tour && TOURS[ownerId.replace(/^demo-/, "")] && <Tour slug={ownerId.replace(/^demo-/, "")} steps={TOURS[ownerId.replace(/^demo-/, "")]} onClose={() => setTour(false)} />}
+
       <AnimatePresence>
         {sheet?.kind === "compare" && (
           <Sheet key="compare" title={`Tools for ${sheet.need.title.toLowerCase()}`} onClose={closeSheet}>
-            <div className="grid gap-4">
+            <div data-tour="compare" className="grid gap-4">
               {(bundle?.compares[sheet.need.need_id]?.options ?? []).map((o) => {
                 const tool = toolById(o.tool_id);
                 return tool ? <ToolCard key={o.tool_id} tool={tool} option={o} uses={profile?.uses}
@@ -754,7 +764,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         )}
         {sheet?.kind === "preview" && (
           <Sheet key="preview" title={`See ${sheet.name} at work`} onClose={closeSheet}>
-            <figure>
+            <figure data-tour="preview">
               <video src={previewSrc(sheet.preview) ?? undefined} autoPlay muted controls playsInline loop
                 className="block w-full h-auto max-h-[70dvh] aspect-[auto_16/9] rounded-2xl bg-black object-contain" />
               <figcaption className="mt-3 text-lg font-semibold">{sheet.preview.kind === "site" ? `Preview of ${sheet.name} on a copy of your website` : `AI-generated preview of how ${sheet.name} would work in your business`}</figcaption>

@@ -135,9 +135,9 @@
    "tool_id": "chatling",
    "prompt": "Carol, owner of a busy family diner in Ellicott City, hurries between booths with coffee pots; on a tablet on the counter a chat assistant answers a customer's question about Saturday hours; warm natural light, one scene, documentary style, no brand logos",
    "status": "completed",
-   "video_file": "chatling.mp4",
+   "video_file": "chatling-full.mp4",
    "cost_usd": 0.18,
-   "video_url": "/demo-media/diner/chatling.mp4"
+   "video_url": "/demo-media/diner/chatling-full.mp4"
   }
  },
  "setups": {},
@@ -199,12 +199,12 @@
   },
   {
    "role": "agent",
-   "text": "Your preview of Chatling is ready, and it's on your page now.\n\nIt shows a busy diner like yours. You're hurrying between booths, and a tablet on the counter answers a customer's question about Saturday hours. The video is made up to show the idea. It isn't a real recording of your diner.\n\nChatling is free to start, and our team has verified it. I can set it up for you. Want me to go ahead? I'll ask for your approval first.",
+   "text": "Your preview of Chatling is ready, and it's on your page now.\n\nIt opens on your diner, brought to life by AI from your photo. Then Chatling answers a customer on your own website: they ask \"Wait on Saturday morning?\" and it replies from your site that Saturday 9 to 11 is your rush, about a 30 minute wait for a booth. The chat window is our mock-up, not Chatling's real one.\n\nChatling is free to start, and our team has verified it. I can set it up for you. Want me to go ahead? I'll ask for your approval first.",
    "channel": "web",
    "at": "2026-11-09T01:28:13+00:00"
   }
  ],
  "media": {
-  "chatling": "/demo-media/diner/chatling.mp4"
+  "chatling": "/demo-media/diner/chatling-full.mp4"
  }
 }

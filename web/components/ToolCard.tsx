@@ -61,6 +61,7 @@ export default function ToolCard({ tool, option, recommended, uses = [], detailL
           type="button"
           className="chip-btn self-start cursor-pointer"
           aria-expanded={open}
+          data-tour-action="score"
           aria-controls={panelId}
           onClick={() => setOpen((o) => !o)}
         >
@@ -68,7 +69,7 @@ export default function ToolCard({ tool, option, recommended, uses = [], detailL
         </button>
       )}
       {open && (
-        <div id={panelId}>
+        <div id={panelId} data-tour="score">
           <TrustBreakdown trust={tool.trust} />
         </div>
       )}

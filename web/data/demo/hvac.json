@@ -114,9 +114,9 @@
    "tool_id": "quoteiq",
    "prompt": "An HVAC owner kneeling beside a rooftop air conditioning unit in a small Maryland town, phone buzzes in a pocket; cut to a phone screen showing a missed call answered and a job booked. One scene, documentary style, real-looking people, warm natural light, no brand logos.",
    "status": "completed",
-   "video_file": "quoteiq.mp4",
+   "video_file": "quoteiq-full.mp4",
    "cost_usd": 0.18,
-   "video_url": "/demo-media/hvac/quoteiq.mp4"
+   "video_url": "/demo-media/hvac/quoteiq-full.mp4"
   }
  },
  "setups": {},
@@ -178,12 +178,12 @@
   },
   {
    "role": "agent",
-   "text": "Your QuoteIQ preview is ready on your page.\n\nIt shows an HVAC owner working beside a rooftop air conditioner. Their phone buzzes in a pocket. Then you see a phone screen where the missed call has been answered and the job is booked. That is the idea: callers get a reply while you stay on the job.\n\nThis is only a sample scene. It isn't your real account or your real calls.\n\nQuoteIQ is $29.99 a month, with a 14-day free trial. We can't set it up for you, but I can send you the sign-up link. I can also point you to a local helper, like Maryland SBDC, who can sit down with you for the setup. Want either one?",
+   "text": "Your QuoteIQ preview is ready on your page.\n\nIt opens on you at a unit, brought to life by AI from your photo. Then a call you miss gets a text back right away with your real hours, the customer says their AC stopped cooling, and an $89 service call is booked for Tuesday at 9 am. That is the idea: callers get a reply while you stay on the job.\n\nThe phone screen is our mock-up, not QuoteIQ's real app or your real calls.\n\nQuoteIQ is $29.99 a month, with a 14-day free trial. We can't set it up for you, but I can send you the sign-up link. I can also point you to a local helper, like Maryland SBDC, who can sit down with you for the setup. Want either one?",
    "channel": "web",
    "at": "2026-11-09T01:30:06+00:00"
   }
  ],
  "media": {
-  "quoteiq": "/demo-media/hvac/quoteiq.mp4"
+  "quoteiq": "/demo-media/hvac/quoteiq-full.mp4"
  }
 }

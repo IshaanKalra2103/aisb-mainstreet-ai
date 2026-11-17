@@ -35,5 +35,18 @@ description: Make one short preview video of a tool doing its job inside this ow
       no dark or blank box in between, no other icons. Only the tool moves; no new text, no people, no camera
       move." --first /work/demo_first.jpg --last /work/demo_last.jpg`.
    e. If it says `page failed`, or both fail, do step 4 instead.
-4. Otherwise: `preview make --tool <tool_id> --prompt "<prompt>"`. It returns a cached video if one exists. If the
-   status is `capped` or `failed`, tell the owner in one sentence and describe what the tool would do instead.
+4. Everything else (any tool that is not website-chat or booking on a shop with a website, or when step 3 failed):
+   a. Start the `screen-demo` subagent with the Agent tool. Give it the shop's name and city, the profile, the shop's
+      website text (or colors if there is no site), the shop's photo URL (a photo of the place from the `photos` of
+      `preview site-info --url <website>`, never a logo or a banner with text; none if there is no site), the
+      tool's name and job, and the topic: a
+      real item or service from their site (never invented prices, hours or claims).
+   b. When it answers `recorded <sentence>`: `preview record --tool <tool_id> --html /work/tmp/demo/index.html`
+      (the agent already ran it once; run it again only if the clip is missing), then
+      `preview opener --tool <tool_id> --photo <photo url> --prompt "<motion>"`, where the motion is one calm
+      sentence bringing the photo to life with things, not people (steam off a cup, light shifting, leaves moving;
+      people stay where they are; no text, no logos, same place as the photo), then `preview join --tool <tool_id>`. With no photo, or if opener or join fails, keep the recording
+      alone.
+   c. Only if the subagent says `record failed` or record fails twice: `preview make --tool <tool_id> --prompt
+      "<prompt>"`. It returns a cached video if one exists. If the status is `capped` or `failed`, tell the owner in
+      one sentence and describe what the tool would do instead.
