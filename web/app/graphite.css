@@ -290,7 +290,10 @@ body:has(.owner-theme) ::selection { background: var(--color-accent); color: var
 .chat-steps-icon.is-failed svg { width: 16px; height: 16px; stroke-width: 2; }
 .chat-steps-icon.is-running { box-shadow: inset 0 0 0 1.5px var(--color-line-strong); }
 .chat-steps-icon.is-running i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-accent); animation: chat-soft-pulse 1.6s ease-in-out infinite; }
-.chat .chat-steps-text { max-height: 15rem; padding: 6px 0 2px; }
+/* Reasoning's fades sit over the newest step while it streams; here the list fades only at its padded edges, so a row
+   dims only once it scrolls past the top, and the newest step at the bottom stays fully visible. */
+.chat .aui-reasoning-fade { display: none; }
+.chat .chat-steps-text { max-height: 15rem; padding: 12px 0; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%); }
 .chat-steplist { list-style: none; margin: 0; padding: 0 0 0 7px; }
 .chat-step { position: relative; display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 4px 0 4px 24px; color: var(--color-ink-2); font-size: .84rem; line-height: 1.4; animation: chat-in var(--dur-3) var(--ease-out) both; }
 .chat-step::before { content: ""; position: absolute; left: 3px; top: 0; bottom: 0; width: 2px; background: var(--color-line-strong); }
