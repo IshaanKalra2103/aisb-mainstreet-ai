@@ -207,3 +207,202 @@ test("a failed video fetch is skipped, texts and cards still go", async () => {
   assert.deepEqual(sent, []);
   assert.ok(h.events.includes("card:P"));
 });
+
+// Native location (Photon's Find My kit): the "Share your shop" card becomes a "share your location" request inside
+// iMessage, and the shared spot goes to the agent in the share page's turn text.
+const SHOP = "https://web.test/b/o_abc/shop";
+const SPOT = { lat: 39.4143, lon: -77.4105, acc: 19.2 };
+
+function locHarness(request: "sent" | "pending" | "failed", spot: typeof SPOT | null) {
+  const bg: Promise<unknown>[] = [];
+  const asked: string[] = [];
+  const h = harness(
+    (c) =>
+      JSON.parse(c.init.body as string).text.startsWith("Here is my shop.")
+        ? json(200, { replies: ["Got your spot. Bean & Brick, right on Market St?"], links: ["https://web.test/b/o_abc"] })
+        : json(200, { replies: ["Where is your shop?"], links: [SHOP] }),
+    {
+      sendLink: async (u) => void h.events.push(`card:${u}`),
+      requestLocation: async (who) => {
+        asked.push(who);
+        h.events.push("location-request");
+        return request;
+      },
+      waitLocation: async () => spot,
+      background: (p) => void bg.push(p),
+    },
+  );
+  return { ...h, bg, asked };
+}
+
+test("the shop card becomes a native location request, and the shared spot goes to the agent", async () => {
+  const h = locHarness("sent", SPOT);
+  assert.equal(await handleMessage(msg(), h.deps), "replied");
+  assert.deepEqual(h.asked, [PHONE]);
+  assert.deepEqual(h.events.filter((e) => !e.startsWith("sleep")), ["send:Where is your shop?", "location-request"]);
+  await Promise.all(h.bg);
+  assert.equal(h.calls.length, 2);
+  assert.deepEqual(JSON.parse(h.calls[1]!.init.body as string), {
+    from_hash: hashSender(PHONE),
+    text: "Here is my shop. Location: 39.41430, -77.41050 (within 20 m). Link: none",
+  });
+  assert.deepEqual(h.events.filter((e) => !e.startsWith("sleep")).slice(2), [
+    "send:Got your spot. Bean & Brick, right on Market St?",
+    "card:https://web.test/b/o_abc",
+  ]);
+});
+
+test("a request already waiting on the owner is not sent or watched twice", async () => {
+  const h = locHarness("pending", SPOT);
+  await handleMessage(msg(), h.deps);
+  await Promise.all(h.bg);
+  assert.equal(h.calls.length, 1);
+  assert.ok(!h.events.includes(`card:${SHOP}`));
+});
+
+test("if the location request fails, the share page card goes out as before", async () => {
+  const h = locHarness("failed", SPOT);
+  await handleMessage(msg(), h.deps);
+  await Promise.all(h.bg);
+  assert.ok(h.events.includes(`card:${SHOP}`));
+  assert.equal(h.calls.length, 1);
+});
+
+test("an owner who never shares gets no extra texts", async () => {
+  const h = locHarness("sent", null);
+  await handleMessage(msg(), h.deps);
+  await Promise.all(h.bg);
+  assert.equal(h.calls.length, 1);
+  assert.deepEqual(h.events.filter((e) => !e.startsWith("sleep")), ["send:Where is your shop?", "location-request"]);
+});
+
+test("without the location kit, the shop card goes out as before", async () => {
+  const h = harness(() => json(200, { replies: ["Where is your shop?"], links: [SHOP] }), {
+    sendLink: async (u) => void h.events.push(`card:${u}`),
+  });
+  await handleMessage(msg(), h.deps);
+  assert.ok(h.events.includes(`card:${SHOP}`));
+});
+
+// The owner's page goes out as an iMessage app card: street photo, shop name, and the plan in numbers.
+const PAGE = "https://web.test/b/o_abc123";
+const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+const PROFILE = { name: "Bean & Brick Coffee", business_type: "coffee_shop", city: "Frederick", state: "MD", lat: 39.4143, lon: -77.4105 };
+const NEEDS = { items: [2, 2, 1, 1].map((h, i) => ({ need_id: `n${i}`, title: `Job ${i}`, est_hours_saved_week: h })) };
+
+function cardHarness(bundle: unknown, photo: Response | (() => Response) = () => new Response(JPEG)) {
+  const cards: { url: string; layout: Record<string, unknown> }[] = [];
+  const h = harness(
+    (c) => {
+      if (c.url === "http://api.test/api/owners/o_abc123") return bundle === null ? new Response("no", { status: 500 }) : json(200, bundle);
+      if (c.url.startsWith("https://web.test/api/street")) return typeof photo === "function" ? photo() : photo;
+      return json(200, { replies: ["Your plan is ready."], links: [PAGE] });
+    },
+    {
+      sendLink: async (u) => void h.events.push(`card:${u}`),
+      sendCard: async (url, layout) => {
+        cards.push({ url, layout: layout as Record<string, unknown> });
+        h.events.push(`app:${url}`);
+      },
+    },
+  );
+  return { ...h, cards };
+}
+
+test("the page link goes out as an app card with the street photo and the plan's numbers", async () => {
+  const h = cardHarness({ profile: PROFILE, needs: NEEDS });
+  assert.equal(await handleMessage(msg(), h.deps), "replied");
+  assert.deepEqual(h.events.filter((e) => !e.startsWith("sleep")), ["send:Your plan is ready.", `app:${PAGE}`]);
+  assert.ok(h.calls.some((c) => c.url === "https://web.test/api/street?lat=39.41430&lon=-77.41050"));
+  const { image, ...rest } = h.cards[0]!.layout;
+  assert.deepEqual(image, JPEG);
+  assert.deepEqual(rest, {
+    imageTitle: "Bean & Brick Coffee",
+    imageSubtitle: "Coffee shop · Frederick, MD",
+    caption: "Your AI plan",
+    subcaption: "4 jobs AI can take",
+    trailingCaption: "6 hrs",
+    trailingSubcaption: "back a week",
+    summary: "Bean & Brick Coffee: your AI plan",
+  });
+});
+
+test("no street photo: the card keeps the name and numbers without an image", async () => {
+  const h = cardHarness({ profile: { ...PROFILE, lat: null, lon: null }, needs: { items: NEEDS.items.slice(0, 1) } }, () => new Response("none", { status: 404 }));
+  await handleMessage(msg(), h.deps);
+  assert.ok(h.calls.some((c) => c.url === "https://web.test/api/street?q=Frederick%2C+MD"));
+  assert.deepEqual(h.cards[0]!.layout, {
+    caption: "Bean & Brick Coffee",
+    subcaption: "Your AI plan · 1 job AI can take",
+    trailingCaption: "2 hrs",
+    trailingSubcaption: "back a week",
+    summary: "Bean & Brick Coffee: your AI plan",
+  });
+});
+
+test("a photo that is not a JPEG is left off the card", async () => {
+  const h = cardHarness({ profile: PROFILE, needs: NEEDS }, () => new Response("<html>"));
+  await handleMessage(msg(), h.deps);
+  assert.equal(h.cards[0]!.layout.image, undefined);
+  assert.equal(h.cards[0]!.layout.caption, "Bean & Brick Coffee");
+});
+
+test("before there is a plan, or if the page can't be read, the page goes out as a link card", async () => {
+  for (const bundle of [{ profile: null, needs: null }, { profile: PROFILE, needs: null }, null]) {
+    const h = cardHarness(bundle);
+    await handleMessage(msg(), h.deps);
+    assert.deepEqual(h.cards, []);
+    assert.ok(h.events.includes(`card:${PAGE}`));
+  }
+});
+
+// Native polls: the API offers a pending approval as a yes/no poll; a vote goes back to /api/imessage/vote.
+const QUESTION = "Set up Chatling for you?";
+const OPTIONS = ["Yes, set it up", "Not now"];
+const pollDeps = (h: { events: string[] }) => ({
+  sendPoll: async (q: string, opts: string[]) => void h.events.push(`poll:${q}|${opts.join("|")}`),
+});
+const vote = (option: string, selected = true): IncomingLike => ({
+  direction: "inbound",
+  sender: { id: PHONE },
+  content: { type: "poll_option", option: { title: option }, poll: { type: "poll", title: QUESTION, options: OPTIONS.map((title) => ({ title })) }, selected } as any,
+});
+
+test("a poll from the API goes out last, after the replies and the page card", async () => {
+  const h: any = harness(() => json(200, { replies: ["I asked to set up Chatling."], links: ["https://web.test/b/o_abc"], poll: { question: QUESTION, options: OPTIONS } }));
+  Object.assign(h.deps, pollDeps(h), { sendLink: async (u: string) => void h.events.push(`card:${u}`) });
+  assert.equal(await handleMessage(msg(), h.deps), "replied");
+  assert.deepEqual(h.events.filter((e: string) => !e.startsWith("sleep")), [
+    "send:I asked to set up Chatling.",
+    "card:https://web.test/b/o_abc",
+    `poll:${QUESTION}|Yes, set it up|Not now`,
+  ]);
+});
+
+test("a malformed poll is dropped and the rest still goes out", async () => {
+  for (const poll of [{ question: "", options: OPTIONS }, { question: QUESTION, options: ["only one"] }, "yes?"]) {
+    const h: any = harness(() => json(200, { replies: ["ok"], links: [], poll }));
+    Object.assign(h.deps, pollDeps(h));
+    assert.equal(await handleMessage(msg(), h.deps), "replied");
+    assert.deepEqual(h.events, ["send:ok"]);
+  }
+});
+
+test("a vote posts {from_hash, poll, option} to the vote route and texts back the replies", async () => {
+  const h: any = harness(() => json(200, { replies: ["Setting up Chatling now."], links: [] }));
+  Object.assign(h.deps, pollDeps(h));
+  assert.equal(await handleMessage(vote("Yes, set it up"), h.deps), "replied");
+  assert.equal(h.calls[0].url, "http://api.test/api/imessage/vote");
+  assert.equal((h.calls[0].init.headers as Record<string, string>)["x-relay-secret"], "s3cret");
+  assert.deepEqual(JSON.parse(h.calls[0].init.body), { from_hash: hashSender(PHONE), poll: QUESTION, option: "Yes, set it up" });
+  assert.deepEqual(h.events, ["send:Setting up Chatling now."]);
+  assert.ok(h.logs.some((l: string) => l.startsWith("[vote] ")) && !h.logs.some((l: string) => l.includes(PHONE) || l.includes("Chatling")));
+});
+
+test("taking a vote back, or a vote from us, is ignored", async () => {
+  for (const m of [vote("Not now", false), { ...vote("Yes, set it up"), direction: "outbound" }]) {
+    const h = harness(() => json(200, { replies: ["x"] }));
+    assert.equal(await handleMessage(m, h.deps), "ignored");
+    assert.equal(h.calls.length, 0);
+  }
+});

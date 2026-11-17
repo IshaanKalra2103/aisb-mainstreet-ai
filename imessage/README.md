@@ -8,9 +8,11 @@ For each incoming text message:
 
 1. `from_hash = sha256(message.sender.id)`. The sender id is the Apple address (phone number or email).
 2. `POST ${AGENT_API_URL}/api/imessage` with `{from_hash, text}` and the `X-Relay-Secret: $MS_RELAY_SECRET` header. The call waits up to 300 s, because the API gives a turn up to about 280 s.
-3. On 200 `{replies, link}`, it sends each reply (at most 3) 3 s apart, then the link to the owner's page (`/b/o_...`).
+3. On 200 `{replies, link}`, it sends each reply (at most 3) 3 s apart, then the link to the owner's page (`/b/o_...`). Once the agent has a profile and jobs, the page goes out as an iMessage app card instead of a link card: the street photo (the web's `/api/street`, as on the page) with the shop's name and place over it, "Your AI plan" with the number of jobs, and the hours back a week on the right. Without a photo the card keeps the name and numbers. Before there is a plan, or if the page can't be read, the link card goes out as before.
 4. On 429 it sends the `detail` text, for example "Give me a few seconds between texts."
 5. On any other error (401, 5xx, timeout, API down, bad response), it sends "Sorry, something broke on our side. Try again in a minute."
+6. When the API asks for the share page (`/b/o_.../shop`), the relay sends iMessage's own "share your location" request instead (Photon's Find My kit, `src/location.ts`). It checks every 10 s, for up to 15 minutes, whether the owner has shared. Once they have, it posts the share page's turn text (`Here is my shop. Location: <lat>, <lon> (within <m> m). Link: none`) for that owner and texts back the agent's replies. If the request can't be sent (for example, the owner texts from an email address the Photon line may not reach), the share page card goes out as before. At most one request per owner goes out in 15 minutes.
+7. When the agent has asked to set up a tool (a pending approval), the API adds `poll: {question, options}` to its reply, once per approval: "Set up Chatling for you?" with "Yes, set it up" and "Not now". The relay sends it last, as a native iMessage poll. A vote comes back as a `poll_option` message; the relay posts `{from_hash, poll, option}` to `/api/imessage/vote`, and the API decides that approval the way the page's buttons do and runs the turn, so the replies come back as texts. A vote can only reach an approval of the voter's own owner; a vote on a question that is already answered gets "That question is already answered. Your page has the latest." Taking a vote back does nothing.
 
 It ignores its own outgoing messages, non-text messages (attachments, reactions and so on) and empty texts. Texts longer than 2000 characters are cut to 2000, the API's limit. A typing indicator shows while the agent works, where Photon supports it.
 
@@ -20,6 +22,9 @@ The logs carry only the first 12 characters of the sender hash, the outcome and 
 
 - `src/relay.ts`: the handler, `handleMessage(message, {apiUrl, secret, fetch, send, sleep, typing, log})`. It has no Photon dependency, so it can be tested on its own.
 - `src/index.ts`: connects to Photon and calls `handleMessage` for each message, each in its own task so that a slow turn never blocks other senders.
+- `src/location.ts`: the native location request and the check for a shared spot. It builds the same low-level Photon client that Spectrum builds from `PROJECT_ID` and `PROJECT_SECRET`, because Spectrum does not expose locations.
+- `demo_rich.mjs`: sends the example business Bean & Brick Coffee to one phone as iMessage UI: a plan card and a job card with street photos, a yes/no poll and a "done" text with confetti (`node --env-file=.env demo_rich.mjs --to <phone>`). It only sends; a vote on its poll is not acted on.
+- `locate.mjs`: the same request and read from the command line, for demos (`node --env-file=.env locate.mjs request|get <phone>`). It prints one JSON line and never the address.
 - `test/relay.test.ts`: unit tests with a fake `fetch`, `send` and `sleep`.
 - `test/api.test.ts`: tests against a real local API running the fake agent. They are skipped unless `RELAY_TEST_API_URL` is set.
 - `send_rich.mjs`, `send_image.mjs`, `connect_paperclip.py`: left over from the earlier GTM project, and not used by the relay.
@@ -52,3 +57,4 @@ cd imessage && RELAY_TEST_API_URL=http://127.0.0.1:8788 RELAY_TEST_SECRET=test n
 - `PROJECT_ID`, `PROJECT_SECRET`: the Photon project credentials, kept in `.env`. That file is gitignored; don't print it. Get the values from the [Photon dashboard](https://app.photon.codes).
 - `AGENT_API_URL`: the agent API. The default is `http://127.0.0.1:8787`.
 - `MS_RELAY_SECRET`: must match the API's `MS_RELAY_SECRET`. If it doesn't, the API answers 401 and owners get the sorry text.
+- `RELAY_NATIVE_LOCATION=0`: turns the native location request off, so the relay sends the share page card again.

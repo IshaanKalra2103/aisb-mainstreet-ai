@@ -19,7 +19,7 @@ Built for the UMD AI for Small Business Hack-a-thon, Fall 2026.
 
 Under the hood:
 
-- **iMessage** (`imessage/`) relays texts to the API. Replies come back as up to 3 short texts plus a link card.
+- **iMessage** (`imessage/`) relays texts to the API. Replies come back as up to 3 short texts plus native iMessage UI: the owner's plan as an app card with a photo of their street, iMessage's own "share your location" request in place of the share page, and a yes/no poll when the agent asks to set up a tool. A vote on the poll approves or declines the setup, the same as the buttons on the page.
 - **Each turn runs in a sandbox.** The API (`msapi`) runs Claude Code in a Docker container with three tools: `tf fetch` (TinyFish) reads the shop's link and the nearby map listings, `ws` saves records, and `match` checks needs against the vetted catalog.
 - **Every fact has a source.** The profile holds 3 to 5 short facts, each linked to its page, for example *13 of 40 Google Maps listings near Westminster show "Book online"*.
 - **Nothing is set up without a yes.** Each job gets one vetted pick with a trust score, and setup waits for the owner's approval.

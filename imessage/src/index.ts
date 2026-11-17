@@ -9,9 +9,10 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Spectrum, attachment, richlink } from "spectrum-ts";
+import { Spectrum, app as appCard, attachment, poll, richlink } from "spectrum-ts";
 import { imessage } from "@spectrum-ts/imessage";
 import { handleMessage, timeoutFromEnv } from "./relay.ts";
+import { locationKit } from "./location.ts";
 
 const apiUrl = process.env.AGENT_API_URL || "http://127.0.0.1:8787";
 const secret = process.env.MS_RELAY_SECRET || undefined;
@@ -43,7 +44,10 @@ const shutdown = async (signal: string) => {
 process.on("SIGINT", () => void shutdown("SIGINT"));
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
-console.log(`[relay] listening, agent API ${apiUrl}`);
+// Native "share your location" card in place of the share page card. RELAY_NATIVE_LOCATION=0 turns it off.
+const location = process.env.RELAY_NATIVE_LOCATION === "0" ? null : locationKit(projectId, projectSecret);
+
+console.log(`[relay] listening, agent API ${apiUrl}, native location ${location ? "on" : "off"}`);
 
 // Each message is handled on its own so a slow turn (up to ~280 s) never blocks other senders.
 for await (const [space, message] of app.messages) {
@@ -54,6 +58,8 @@ for await (const [space, message] of app.messages) {
     fetch: (url, init) => fetch(url, init),
     send: (text) => space.send(text),
     sendLink: (url) => space.send(richlink(url)),
+    sendCard: (url, layout) => space.send(appCard(url, { layout })),
+    sendPoll: (question, options) => space.send(poll(question, ...options)),
     sendVideo: async (bytes, name) => {
       const dir = await mkdtemp(join(tmpdir(), "ms-video-"));
       try {
@@ -65,6 +71,10 @@ for await (const [space, message] of app.messages) {
       }
     },
     typing: (on) => (on ? space.startTyping() : space.stopTyping()),
+    ...(location && {
+      requestLocation: (who: string) => location.request(space.id, who),
+      waitLocation: (who: string) => location.wait(who),
+    }),
   }).catch((e) => console.error(`[relay] handler crashed: ${e instanceof Error ? e.name : typeof e}`));
 }
 console.error("[relay] Photon message stream ended");
