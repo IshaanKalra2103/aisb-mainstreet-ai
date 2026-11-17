@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./aui.css"; /* assistant-ui elements (chat): shadcn registry CSS + token names mapped to graphite */
 
 /* Not "inline": utilities keep reading var(--color-*), so the owner routes can swap the whole palette (graphite.css). */
 @theme {

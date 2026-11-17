@@ -1,0 +1,36 @@
+@import "tw-shimmer";
+/* shadcn writes registry CSS here (components.json "tailwind.css"); globals.css stays untouched so the graphite tokens win. */
+
+@custom-variant data-open (&:where([data-state="open"], [data-open]:not([data-open="false"])));
+
+@custom-variant data-closed (&:where([data-state="closed"], [data-closed]:not([data-closed="false"])));
+
+@theme inline {
+  @keyframes collapsible-down {
+  from {
+    height: 0;
+    }
+  to {
+    height: var(--radix-collapsible-content-height, var(--collapsible-panel-height, auto));
+    }
+  }
+  @keyframes collapsible-up {
+  from {
+    height: var(--radix-collapsible-content-height, var(--collapsible-panel-height, auto));
+    }
+  to {
+    height: 0;
+    }
+  }
+}
+/* The shadcn token names the assistant-ui elements use, pointed at the graphite ramp. "inline" so each utility reads the
+   graphite variable where the element sits (the owner theme), not a value frozen at :root. */
+@theme inline {
+  --color-foreground: var(--color-ink);
+  --color-muted-foreground: var(--color-ink-2);
+  --color-border: var(--color-line);
+  --color-ring: var(--color-accent);
+  --animate-collapsible-down: collapsible-down var(--animation-duration, 200ms) cubic-bezier(0.2, 0, 0, 1);
+  --animate-collapsible-up: collapsible-up var(--animation-duration, 200ms) cubic-bezier(0.2, 0, 0, 1);
+}
+@utility fill-mode-forwards { animation-fill-mode: forwards; }

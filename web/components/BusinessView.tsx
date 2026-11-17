@@ -10,7 +10,6 @@ import ToolCard from "./ToolCard";
 import TrustBreakdown, { BadgePill } from "./TrustBreakdown";
 import { Approval, HELPERS, SetupRecordView } from "./SetupPanel";
 import OfflineBanner from "./OfflineBanner";
-import TurnLog from "./TurnLog";
 import ChatBox from "./ChatBox";
 import TextUs from "./TextUs";
 import ReadingSite from "./ReadingSite";
@@ -761,9 +760,8 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         {sheet?.kind === "chat" && (
           <Sheet key="chat" title="Ask us anything" onClose={closeSheet} full>
             {live ? (
-              <div className="flex h-full flex-col gap-4">
-                <div className="shrink-0"><TurnLog events={events} active={active} /></div>
-                <ChatBox messages={bundle?.messages ?? []} suggestions={suggestions} onSend={send} disabled={offline} running={!!active} />
+              <div className="flex min-h-0 flex-1 flex-col">
+                <ChatBox messages={bundle?.messages ?? []} events={events} suggestions={suggestions} onSend={send} disabled={offline} running={!!active} />
               </div>
             ) : (
               <div className="grid gap-4">
