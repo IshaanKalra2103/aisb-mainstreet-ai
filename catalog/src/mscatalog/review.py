@@ -26,7 +26,8 @@ def decide(rec: dict, action: str, reviewer: str) -> dict:
     tool = rec["tool"]
     if action == "agent-setup":
         tool["setup"]["agent_setup"] = True
-        tool["setup"]["playbook"] = tool["setup"].get("playbook") or f"setup-{tool['id']}"
+        if not tool["setup"].get("flow"):  # a recorded flow is replayed by `bu setup`: no playbook skill needed
+            tool["setup"]["playbook"] = tool["setup"].get("playbook") or f"setup-{tool['id']}"
         return rec
     tool["status"] = {"approve": "approved", "reject": "rejected"}[action]
     tool["reviewed_by"] = reviewer

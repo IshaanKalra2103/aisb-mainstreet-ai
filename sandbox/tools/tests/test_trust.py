@@ -42,8 +42,6 @@ def test_points_clamped_to_weight():
 
 def test_can_agent_setup_requires_verified_flag_and_playbook():
     setup_on = {"minutes": 10, "difficulty": "easy", "agent_setup": True, "playbook": "setup-acme-chat"}
-    caution = Tool(**tool_data(setup=setup_on, trust={"score": 70, "badge": "caution", "signals": {}}))
-    assert not can_agent_setup(caution)
     off = Tool(**tool_data(setup={**setup_on, "agent_setup": False}))
     assert not can_agent_setup(off)
     no_playbook = Tool(**tool_data(setup={**setup_on, "playbook": None}))
@@ -54,5 +52,13 @@ def test_can_agent_setup_requires_verified_flag_and_playbook():
 def test_a_recorded_flow_counts_like_a_playbook():
     flow_only = {"minutes": 10, "difficulty": "easy", "agent_setup": True, "playbook": None, "flow": "rzrv"}
     assert can_agent_setup(Tool(**tool_data(setup=flow_only)))
-    caution = Tool(**tool_data(setup=flow_only, trust={"score": 70, "badge": "caution", "signals": {}}))
-    assert not can_agent_setup(caution)  # still only verified tools
+
+
+def test_a_team_approved_caution_tool_can_be_set_up_but_never_an_unknown_or_unreviewed_one():
+    # The team approves a tool after testing its setup live (RZRV): its badge stays what the evidence says.
+    flow = {"minutes": 10, "difficulty": "easy", "agent_setup": True, "playbook": None, "flow": "rzrv"}
+    caution = {"score": 55, "badge": "caution", "signals": {}}
+    assert can_agent_setup(Tool(**tool_data(setup=flow, trust=caution)))
+    assert not can_agent_setup(Tool(**tool_data(setup=flow, trust=caution, status="pending")))
+    assert not can_agent_setup(Tool(**tool_data(setup=flow, trust={"score": 45, "badge": "unknown", "signals": {}})))
+    assert not can_agent_setup(Tool(**tool_data(setup={**flow, "agent_setup": False}, trust=caution)))

@@ -21,7 +21,7 @@ export default function PreviewPlayer({ preview }: { preview: P }) {
     <figure className="card p-4 sm:p-5">
       <video src={`${src}#t=0.5`} muted controls playsInline preload="metadata" className="w-full rounded-2xl bg-black max-h-[70vh]" />
       <figcaption className="mt-3 text-base text-soft">
-        {preview.kind === "site" ? `AI-made preview of ${name} on your website` : `AI-generated preview of how ${name} would work in your business`}
+        {preview.kind === "site" ? `Preview of ${name} on a copy of your website` : `AI-generated preview of how ${name} would work in your business`}
       </figcaption>
     </figure>
   );

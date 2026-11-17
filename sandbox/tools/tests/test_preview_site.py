@@ -145,3 +145,65 @@ def test_a_jpeg_frame_is_sent_as_jpeg(env, monkeypatch, capsys):
     _cli(monkeypatch, capsys, "make", "--tool", "chatling", "--prompt", "p", "--first", str(env["work"] / "demo_first.jpg"),
          "--last", str(env["work"] / "demo_first.jpg"), handler=_video(seen))
     assert seen["body"]["frame_images"][0]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+
+
+STEPPED = ("<!doctype html><html><head></head><body><h1>Vigilante</h1>\n<!-- tool -->"
+           "<button data-step='1' data-act='click' data-opens>chat</button><div data-panel>"
+           "<div data-step='3' data-act='show'>Do you sell beans?</div>"
+           "<div data-step='4' data-act='show' data-typing>Yes, Peru and Kenya.</div>"
+           "<input data-step='2' data-act='type' data-text='Do you sell beans?'></div><!-- /tool -->\n</body></html>")
+
+
+class _RecPage(_Page):
+    async def evaluate(self, js, *a):
+        self.log.append(("eval", js, *a))
+        if "__mt.total" in js:
+            return 1.0
+
+
+def test_record_needs_numbered_steps_in_the_tool_block(env, monkeypatch, capsys):
+    page = env["work"] / "index.html"
+    page.write_text(HTML)
+    code, out = _cli(monkeypatch, capsys, "record", "--tool", "chatling", "--html", str(page))
+    assert code == 1 and "data-step" in out["error"]
+
+
+def test_record_seeks_and_shoots_every_frame_then_saves_a_site_clip(env, monkeypatch, capsys):
+    log, encoded = [], {}
+
+    @contextlib.asynccontextmanager
+    async def fake(proxy=None, width=1440, height=900, minutes=10, on_live=None):
+        assert (width, height) == (1280, 1080)
+        yield _RecPage(log), {"id": "b1"}
+
+    def encode(frames_dir, fps, out):
+        encoded.update(n=len(list(frames_dir.glob("f*.jpg"))), fps=fps)
+        out.write_bytes(b"mp4")
+    monkeypatch.setattr(browseruse, "browser", fake)
+    monkeypatch.setattr(preview, "_encode", encode)
+    page = env["work"] / "index.html"
+    page.write_text(STEPPED)
+    code, out = _cli(monkeypatch, capsys, "record", "--tool", "chatling", "--html", str(page))
+    assert code == 0 and out["preview"]["kind"] == "site" and out["preview"]["status"] == "completed"
+    assert out["preview"]["video_file"] == "preview_chatling.mp4" and out["preview"]["cost_usd"] == 0
+    sent = base64.b64decode(next(e for e in log if e[0] == "goto")[1].split(",", 1)[1]).decode()
+    assert FRAME_CSS in sent and "window.__mt" in sent and sent.index("window.__mt") > sent.index("<!-- /tool -->")
+    seeks = [e[2] for e in log if e[0] == "eval" and "__mt.seek" in e[1]]
+    # 1 s of timeline at the recording rate, every frame drawn exactly at its own time and shot clipped to the frame
+    assert seeks == [i / preview.REC_FPS for i in range(preview.REC_FPS + 1)]
+    shots = [e for e in log if e[0] == "shot"]
+    assert len(shots) == len(seeks) and all(e[2] == preview.FRAME and e[3] == "jpeg" for e in shots)
+    assert encoded == {"n": len(seeks), "fps": preview.REC_FPS}
+    assert (env["work"] / "preview_chatling.mp4").read_bytes() == b"mp4"
+
+
+def test_record_failure_points_to_the_frames_clip(env, monkeypatch, capsys):
+    @contextlib.asynccontextmanager
+    async def fake(**k):
+        raise browseruse.Unavailable("no key")
+        yield
+    monkeypatch.setattr(browseruse, "browser", fake)
+    page = env["work"] / "index.html"
+    page.write_text(STEPPED)
+    code, out = _cli(monkeypatch, capsys, "record", "--tool", "chatling", "--html", str(page))
+    assert code == 1 and "preview make" in out["error"] and "--first" in out["error"]

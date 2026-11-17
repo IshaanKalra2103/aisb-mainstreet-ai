@@ -9,6 +9,7 @@ dependencies = [
     "tinyfish>=0.9.0",
     "agentmail>=2.0.15",
     "playwright>=1.48",
+    "imageio-ffmpeg>=0.5",
 ]
 
 

@@ -28,6 +28,8 @@ STATUS = [
     ("catalog match", "Checking our vetted tools"),
     ("catalog get", "Looking up a tool"),
     ("preview make", "Making a short preview video. This takes a few minutes."),
+    ("preview record", "Recording the preview on a copy of your website"),
+    ("preview site-info", "Looking at your homepage"),
     ("approval request", "Asking for your OK"),
     ("approval status", "Checking your answer"),
     ("tf agent-start", "Starting the setup browser"),
@@ -38,7 +40,7 @@ STATUS = [
     ("inbox read", "Reading the confirmation email"),
 ]
 # Bash command prefix -> record kind that changes when it succeeds.
-FILES = {"approval request": "approval", "preview make": "preview"}
+FILES = {"approval request": "approval", "preview make": "preview", "preview record": "preview"}
 
 
 class LimitReached(Exception):

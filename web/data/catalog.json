@@ -558,7 +558,7 @@
    "setup": {
     "minutes": 15,
     "difficulty": "easy",
-    "agent_setup": false,
+    "agent_setup": true,
     "playbook": null
    },
    "integrations": [

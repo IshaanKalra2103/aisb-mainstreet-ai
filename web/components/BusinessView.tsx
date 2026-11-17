@@ -766,7 +766,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
             <figure>
               <video src={previewSrc(sheet.preview) ?? undefined} autoPlay muted controls playsInline loop
                 className="block w-full h-auto max-h-[70dvh] aspect-[auto_16/9] rounded-2xl bg-black object-contain" />
-              <figcaption className="mt-3 text-lg font-semibold">{sheet.preview.kind === "site" ? `AI-made preview of ${sheet.name} on your website` : `AI-generated preview of how ${sheet.name} would work in your business`}</figcaption>
+              <figcaption className="mt-3 text-lg font-semibold">{sheet.preview.kind === "site" ? `Preview of ${sheet.name} on a copy of your website` : `AI-generated preview of how ${sheet.name} would work in your business`}</figcaption>
             </figure>
           </Sheet>
         )}

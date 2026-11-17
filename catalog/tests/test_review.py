@@ -24,3 +24,15 @@ def test_review_flags_approve_reject_agent_setup():
     assert a["trust"]["badge"] == "verified"
     assert a["setup"]["agent_setup"] is True and a["setup"]["playbook"] == "setup-a"
     assert b["status"] == "rejected" and b["trust"]["badge"] == "unknown"
+
+
+def test_agent_setup_on_a_recorded_flow_tool_adds_no_playbook():
+    _rec("r.com", "r", [10, 0, 20, 15, 0, 10])
+    path = store.records_dir() / "r.com.json"
+    rec = store.load_json(path)
+    rec["tool"]["setup"]["flow"] = "r"
+    rec["tool"]["status"] = "approved"
+    store.save_json(path, rec)
+    review.apply([], [], ["r"], "Tester")
+    setup = store.load_json(path)["tool"]["setup"]
+    assert setup["agent_setup"] is True and setup["playbook"] is None and setup["flow"] == "r"

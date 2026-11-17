@@ -10,7 +10,10 @@ block between `<!-- tool -->` and `<!-- /tool -->`; `frames` renders it closed a
 import argparse
 import asyncio
 import base64
+import contextlib
 import os
+import shutil
+import subprocess
 import time
 from pathlib import Path
 
@@ -19,6 +22,7 @@ import httpx
 from . import browseruse, config, ws
 from .budget import BudgetExceeded, bump_count, charge, spent
 from .cli import ToolError, log, run
+from .player import PLAYER_JS
 
 API = "https://openrouter.ai/api/v1/videos"
 
@@ -215,7 +219,70 @@ def frames(html_path: str) -> dict:
     return {"first": str(first), "last": str(last)}
 
 
+REC_FPS = 15
+
+
+def _with_player(html: str) -> str:
+    tag = f"<script>{PLAYER_JS}</script>"
+    i = html.lower().rfind("</body>")
+    return html[:i] + tag + html[i:] if i >= 0 else html + tag
+
+
+async def _record_run(html: str, frames_dir: Path) -> None:
+    async with browseruse.browser(proxy=None, width=1280, height=1080, minutes=5) as (page, _s):
+        url = "data:text/html;base64," + base64.b64encode(_with_player(_pinned(html)).encode()).decode()
+        await page.goto(url, wait_until="load", timeout=30_000)
+        with contextlib.suppress(Exception):
+            await page.wait_for_load_state("networkidle", timeout=8_000)  # the shop's photos and fonts
+        await page.wait_for_timeout(400)
+        total = float(await page.evaluate("() => window.__mt.total"))
+        # Each frame is drawn at its exact time by the player, then shot: no dropped frames, whatever the network.
+        for i in range(int(total * REC_FPS) + 1):
+            await page.evaluate("t => window.__mt.seek(t)", i / REC_FPS)
+            await page.screenshot(path=str(frames_dir / f"f{i:04d}.jpg"), clip=FRAME, type="jpeg", quality=85,
+                                  scale="css")  # 1280x720 whatever the pixel ratio: a quarter of the bytes at 2x
+
+
+def _encode(frames_dir: Path, fps: int, out: Path) -> None:
+    import imageio_ffmpeg  # a static ffmpeg in a wheel: the sandbox image has no system ffmpeg
+
+    cmd = [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-framerate", str(fps),
+           "-i", str(frames_dir / "f%04d.jpg"), "-vf", "scale=1280:720:flags=lanczos,format=yuv420p",
+           "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-movflags", "+faststart", str(out)]
+    subprocess.run(cmd, check=True, capture_output=True, timeout=180)
+
+
+def record(tool: str, html_path: str) -> dict:
+    """Record the run-through: the cursor opens the tool, the customer types, the tool answers, all in exact words."""
+    f = Path(html_path)
+    if not f.is_file():
+        raise ToolError(f"No page at {html_path}. Write the rebuild as one file, /work/tmp/demo/index.html, first.")
+    html = f.read_text()
+    block = html[html.find(TOOL_OPEN):html.find(TOOL_CLOSE)] if TOOL_OPEN in html and TOOL_CLOSE in html else ""
+    if "data-step" not in block:
+        raise ToolError("The tool block needs its steps marked: data-step=\"1\", \"2\"... with data-act=\"click\", "
+                        "\"type\" or \"show\" (see the site-demo rules).")
+    work = config.work()
+    mp4, tmp = work / f"preview_{tool}.mp4", work / "tmp" / "rec"
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    try:
+        asyncio.run(asyncio.wait_for(_record_run(html, tmp), timeout=300))
+        _encode(tmp, REC_FPS, mp4)
+    except Exception as e:
+        log(f"record failed: {type(e).__name__}: {str(e)[:200]}")
+        raise ToolError("Could not record the run-through, so make the clip from the two frames instead (preview make "
+                        "--tool T --prompt P --first /work/demo_first.jpg --last /work/demo_last.jpg).")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    rec = _record(tool, "Recorded run-through of the tool on a copy of the shop's homepage", "completed", mp4.name,
+                  0.0, "site")
+    return {"preview": rec, "cached": False}
+
+
 def _main(a: argparse.Namespace) -> dict:
+    if a.cmd == "record":
+        return record(a.tool, a.html)
     if a.cmd == "site-info":
         return site_info(a.url)
     if a.cmd == "frames":
@@ -238,6 +305,9 @@ def main() -> None:
     si.add_argument("--url", required=True)
     fr = sub.add_parser("frames", help="render the one-file rebuild closed and open")
     fr.add_argument("--html", default="/work/tmp/demo/index.html")
+    rc = sub.add_parser("record", help="record the run-through on the one-file rebuild: cursor, typing, the answer")
+    rc.add_argument("--tool", required=True)
+    rc.add_argument("--html", default="/work/tmp/demo/index.html")
     run(_main, p)
 
 

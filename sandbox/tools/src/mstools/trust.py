@@ -20,4 +20,7 @@ def score_signals(signals: dict[str, Signal], human_approved: bool) -> Trust:
 
 
 def can_agent_setup(tool: Tool) -> bool:
-    return tool.trust.badge == "verified" and tool.setup.agent_setup and bool(tool.setup.playbook or tool.setup.flow)
+    # Verified tools, and caution ones the team approved after testing their setup live: the badge stays what the
+    # evidence says. Unknown or unreviewed tools are never set up by us.
+    trusted = tool.trust.badge == "verified" or (tool.trust.badge == "caution" and tool.status == "approved")
+    return trusted and tool.setup.agent_setup and bool(tool.setup.playbook or tool.setup.flow)
