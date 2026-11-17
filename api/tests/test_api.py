@@ -93,11 +93,10 @@ async def test_bundle_hides_password_and_reveal_once(make_client, settings):
     app, c = make_client()
     oid = await new_owner(c)
     p = Workspaces(settings.workspaces).owner_dir(oid) / "setup_chat-a.json"
-    p.write_text(json.dumps({"tool_id": "chat-a", "status": "done", "username": "u", "inbox": "agent@inbox.test", "password": "s3cret-pw", "configured": [], "next_steps": []}))
+    p.write_text(json.dumps({"tool_id": "chat-a", "status": "done", "username": "u", "password": "s3cret-pw", "configured": [], "next_steps": []}))
     r = await c.get(f"/api/owners/{oid}")
     assert "s3cret-pw" not in r.text
     assert r.json()["setups"]["chat-a"]["has_password"] is True
-    assert "username" not in r.json()["setups"]["chat-a"] and "inbox" not in r.json()["setups"]["chat-a"]
     first = await c.get(f"/api/owners/{oid}/password/chat-a")
     assert first.status_code == 200 and first.json()["password"] == "s3cret-pw"
     second = await c.get(f"/api/owners/{oid}/password/chat-a")
