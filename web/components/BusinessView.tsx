@@ -69,7 +69,7 @@ function PlaceImg({ src, className }: { src: string; className: string }) {
  */
 function CardPhoto({ src, img, className, children }: { src: string | null; img?: string | null; className?: string; children?: React.ReactNode }) {
   return (
-    <div className={`relative mx-2.5 mt-2.5 overflow-hidden rounded-[var(--photo-radius)] bg-grey-tint ${className ?? "flex-1 min-h-[96px] sm:min-h-[36%]"}`}>
+    <div data-testid="card-media" className={`relative mx-2.5 mt-2.5 overflow-hidden rounded-[var(--photo-radius)] bg-grey-tint ${className ?? "flex-1 min-h-[96px] sm:min-h-[36%]"}`}>
       <div aria-hidden className="absolute inset-0 bg-[radial-gradient(80%_80%_at_0%_0%,var(--wash-a),transparent_70%),radial-gradient(80%_80%_at_100%_100%,var(--wash-b),transparent_70%)]" />
       {src
         ? <video src={src} muted loop autoPlay playsInline preload="auto" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
@@ -348,7 +348,7 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
       const tool = c.tool;
       return (
         <div className="flex-1 flex flex-col">
-          <CardPhoto src={src} img={cardImg(c)} className="flex-1 min-h-[120px]">
+          <CardPhoto src={src} img={cardImg(c)} className="aspect-video shrink-0">
             <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-3">
               <Pill onPhoto>Job {c.n} of {items.length}</Pill>
               {src && c.preview && (
@@ -359,12 +359,10 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
                 </button>
               )}
             </div>
-            <p className="absolute left-3 bottom-3 rounded-full glass px-3 py-1 text-sm font-semibold text-accent">
-              About {c.need.est_hours_saved_week} {c.need.est_hours_saved_week === 1 ? "hour" : "hours"} a week
-            </p>
           </CardPhoto>
-          <div className="min-h-0 overflow-y-auto px-5 pt-3.5 sm:px-6">
-            <h2 className="text-[1.4rem] sm:text-[1.7rem] font-semibold leading-[1.1] text-balance">{c.need.title}</h2>
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-3.5 sm:px-6">
+            <p data-testid="card-hours" className="text-sm font-semibold text-accent-dark">{cardSub(c)}</p>
+            <h2 className="mt-0.5 text-[1.4rem] sm:text-[1.7rem] font-semibold leading-[1.1] text-balance">{c.need.title}</h2>
             <p className="mt-1.5 text-base leading-snug text-muted">{c.need.why}</p>
             {tool ? (
               <div className="mt-2 sm:mt-3 rounded-2xl bg-raised border border-line/70 px-4 py-2.5 sm:py-3">
@@ -524,7 +522,13 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
 
         {tabsShown && (
           <div ref={tabsRef} className="mt-7 scroll-mt-3">
-            <h2 className="text-2xl font-semibold">{items.length ? `${items.length} ${items.length === 1 ? "job" : "jobs"} AI can take` : "Your plan"}</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-2xl font-semibold">{items.length ? `${items.length} ${items.length === 1 ? "job" : "jobs"} AI can take` : "Your plan"}</h2>
+              {/* On a phone, Ask us sits here instead of floating over the tabs (the deck has its own beside Back). */}
+              {!deckOnPhone && (
+                <button type="button" onClick={() => setSheet({ kind: "chat" })} className="btn btn-secondary !min-h-11 !px-4 shrink-0 sm:hidden">{Icon.chat}Ask us</button>
+              )}
+            </div>
             <div role="group" aria-label="How to see your jobs" className="mt-3 grid grid-cols-3 gap-1 rounded-full bg-grey-tint p-1">
               {TABS.map((t) => (
                 <button key={t.id} type="button" aria-pressed={mode === t.id} onClick={() => setMode(t.id)}
@@ -642,10 +646,10 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
         )}
       </div>
 
-      <button type="button" onClick={() => setSheet({ kind: "chat" })} aria-label="Ask us a question"
-        className={`fixed bottom-5 right-5 z-40 ${deckOnPhone ? "hidden sm:flex" : "flex"} h-14 items-center gap-2 rounded-[var(--btn-radius,999px)] bg-float border border-btn2-line px-5 text-base font-semibold text-ink shadow-[var(--shadow-pop,0_1px_2px_rgba(0,0,0,.05),0_12px_32px_rgba(17,18,20,.12))] hover:bg-grey-tint`}>
+      {!sheet && <button type="button" onClick={() => setSheet({ kind: "chat" })} aria-label="Ask us a question"
+        className={`fixed bottom-5 right-5 z-40 ${tabsShown ? "hidden sm:flex" : "flex"} h-14 items-center gap-2 rounded-[var(--btn-radius,999px)] bg-float border border-btn2-line px-5 text-base font-semibold text-ink shadow-[var(--shadow-pop,0_1px_2px_rgba(0,0,0,.05),0_12px_32px_rgba(17,18,20,.12))] hover:bg-grey-tint`}>
         {Icon.chat}<span>Ask us</span>
-      </button>
+      </button>}
 
       <AnimatePresence>
         {sheet?.kind === "compare" && (
@@ -670,10 +674,10 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
           </Sheet>
         )}
         {sheet?.kind === "preview" && (
-          <Sheet key="preview" title={`See ${sheet.name} at work`} onClose={closeSheet} full>
-            <figure className="flex h-full flex-col">
+          <Sheet key="preview" title={`See ${sheet.name} at work`} onClose={closeSheet}>
+            <figure>
               <video src={previewSrc(sheet.preview) ?? undefined} autoPlay muted controls playsInline loop
-                className="w-full flex-1 min-h-0 rounded-2xl bg-black object-contain" />
+                className="block w-full h-auto max-h-[70dvh] aspect-[auto_16/9] rounded-2xl bg-black object-contain" />
               <figcaption className="mt-3 text-lg font-semibold">AI-generated preview of how {sheet.name} would work in your business</figcaption>
             </figure>
           </Sheet>

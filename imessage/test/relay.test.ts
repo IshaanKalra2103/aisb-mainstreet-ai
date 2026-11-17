@@ -276,6 +276,37 @@ test("an owner who never shares gets no extra texts", async () => {
   assert.deepEqual(h.events.filter((e) => !e.startsWith("sleep")), ["send:Where is your shop?", "location-request"]);
 });
 
+// An owner who shares after the 15-minute wait: the next text they send checks once, and a spot found then goes to the
+// agent first, as the share page's turn, before their text.
+test("a spot shared after the wait ended goes to the agent before the owner's next text", async () => {
+  const checked: string[] = [];
+  const h = harness((c) => json(200, { replies: [`re:${JSON.parse(c.init.body as string).text.slice(0, 12)}`] }), {
+    lateLocation: async (who) => {
+      checked.push(who);
+      return SPOT;
+    },
+  });
+  assert.equal(await handleMessage(msg(), h.deps), "replied");
+  assert.deepEqual(checked, [PHONE]);
+  assert.equal(h.calls.length, 2);
+  assert.equal(JSON.parse(h.calls[0]!.init.body as string).text, "Here is my shop. Location: 39.41430, -77.41050 (within 20 m). Link: none");
+  assert.equal(JSON.parse(h.calls[1]!.init.body as string).text, TEXT);
+  assert.deepEqual(h.events.filter((e) => !e.startsWith("sleep")), ["send:re:Here is my s", `send:re:${TEXT.slice(0, 12)}`]);
+});
+
+test("with no late share, the owner's text goes to the agent alone", async () => {
+  const h = harness(() => json(200, { replies: ["ok"] }), { lateLocation: async () => null });
+  await handleMessage(msg(), h.deps);
+  assert.equal(h.calls.length, 1);
+  assert.equal(JSON.parse(h.calls[0]!.init.body as string).text, TEXT);
+});
+
+test("a failing late check never blocks the owner's text", async () => {
+  const h = harness(() => json(200, { replies: ["ok"] }), { lateLocation: async () => { throw new Error("grpc down"); } });
+  assert.equal(await handleMessage(msg(), h.deps), "replied");
+  assert.equal(h.calls.length, 1);
+});
+
 test("without the location kit, the shop card goes out as before", async () => {
   const h = harness(() => json(200, { replies: ["Where is your shop?"], links: [SHOP] }), {
     sendLink: async (u) => void h.events.push(`card:${u}`),

@@ -101,6 +101,27 @@
     }
    ],
    "recommended_tool_id": "rightresponse-ai"
+  },
+  "social-posts": {
+   "need_id": "social-posts",
+   "options": [
+    {
+     "tool_id": "apaya",
+     "fit_sentence": "Verified by our team and our highest-scored tool for posts; from $55 a month billed yearly ($69 monthly), with a 3-day free trial.",
+     "works_with": []
+    },
+    {
+     "tool_id": "buffer",
+     "fit_sentence": "Free for 3 accounts, so you can schedule Instagram, Facebook and Google posts at no cost; paid plans start at $5 a month per account.",
+     "works_with": []
+    },
+    {
+     "tool_id": "probeauty-ai",
+     "fit_sentence": "Made for beauty pros: besides promos and images it does booking and text reminders, from $19.99 a month.",
+     "works_with": []
+    }
+   ],
+   "recommended_tool_id": "apaya"
   }
  },
  "previews": {

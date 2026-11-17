@@ -21,15 +21,15 @@
  "needs": {
   "items": [
    {
-    "need_id": "social-posts",
-    "title": "Social posts and specials",
-    "why": "Your specials change often and you post them on Instagram by hand.",
-    "est_hours_saved_week": 2.0
-   },
-   {
     "need_id": "website-chat",
     "title": "Website chat and FAQ",
     "why": "Customers ask about hours, menu and catering boxes, even when you are busy pulling shots.",
+    "est_hours_saved_week": 2.0
+   },
+   {
+    "need_id": "social-posts",
+    "title": "Social posts and specials",
+    "why": "Your specials change often and you post them on Instagram by hand.",
     "est_hours_saved_week": 2.0
    },
    {
@@ -125,6 +125,29 @@
     }
    ],
    "recommended_tool_id": "chatling"
+  },
+  "marketing-msgs": {
+   "need_id": "marketing-msgs",
+   "options": [
+    {
+     "tool_id": "klaviyo",
+     "fit_sentence": "Free for up to 250 customers, so you can start your email list at no cost; paid email starts at $20 a month and texts are an add-on.",
+     "works_with": []
+    },
+    {
+     "tool_id": "constant-contact",
+     "fit_sentence": "The only one of the three that also schedules your Instagram posts; from $12 a month, with texts as a $10 a month add-on.",
+     "works_with": [
+      "instagram"
+     ]
+    },
+    {
+     "tool_id": "omnisend",
+     "fit_sentence": "Free plan covers 250 contacts and 500 emails a month, and texts cost under a cent each, so you pay only for what you send.",
+     "works_with": []
+    }
+   ],
+   "recommended_tool_id": "klaviyo"
   }
  },
  "previews": {

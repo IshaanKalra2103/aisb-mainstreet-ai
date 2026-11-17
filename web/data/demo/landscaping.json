@@ -108,6 +108,27 @@
     }
    ],
    "recommended_tool_id": "quoteiq"
+  },
+  "reviews": {
+   "need_id": "reviews",
+   "options": [
+    {
+     "tool_id": "localo",
+     "fit_sentence": "Review replies for the lowest price of the three: $39 a month billed yearly ($49 monthly), with a 14-day free trial and no card.",
+     "works_with": []
+    },
+    {
+     "tool_id": "thryv",
+     "fit_sentence": "Review replies come with the $99 a month Starter plan, which also keeps your listings up to date; there is a free trial.",
+     "works_with": []
+    },
+    {
+     "tool_id": "marky",
+     "fit_sentence": "Review replies need the $79 a month Growth plan, and the 14-day trial asks for a card; it also writes your social posts.",
+     "works_with": []
+    }
+   ],
+   "recommended_tool_id": "localo"
   }
  },
  "previews": {

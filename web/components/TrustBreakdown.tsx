@@ -29,7 +29,7 @@ export default function TrustBreakdown({ trust }: { trust: Trust }) {
       {entries.map(([key, s]) => (
         <li key={key} className="py-3">
           <div className="flex justify-between gap-4 font-semibold">
-            <span>{SIGNAL_LABELS[key] ?? key.replace(/_/g, " ")}</span>
+            <span>{SIGNAL_LABELS[key] ?? key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ")}</span>
             <span className="whitespace-nowrap">{s.points} / {s.max}</span>
           </div>
           <div className="mt-1 h-2 rounded bg-grey-tint" aria-hidden>

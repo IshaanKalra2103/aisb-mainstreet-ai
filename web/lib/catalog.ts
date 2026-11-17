@@ -30,7 +30,9 @@ export const SIGNAL_LABELS: Record<string, string> = {
   identity: "Who is behind it",
   longevity: "How long it has been around",
   data_handling: "How it handles your data",
+  pricing: "Honest pricing",
   pricing_transparency: "Honest pricing",
+  reviews: "Independent reviews",
   independent_reviews: "Independent reviews",
   viability: "Likely to be around next year",
 };

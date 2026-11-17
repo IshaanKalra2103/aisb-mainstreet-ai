@@ -3,6 +3,11 @@ import { useMemo, useState } from "react";
 import { BUSINESS_TYPE_LABELS, catalog } from "@/lib/catalog";
 import ToolCard from "./ToolCard";
 
+/** Verified tools first, then use-with-caution, then unknown builders; best score first within each. */
+const RANK: Record<string, number> = { verified: 0, caution: 1, unknown: 2 };
+/** Cards shown at first, and added per tap of Show more. */
+const PAGE = 24;
+
 export default function CatalogBrowser() {
   const [type, setType] = useState("");
   const [job, setJob] = useState("");
@@ -22,7 +27,12 @@ export default function CatalogBrowser() {
       (!job || t.need_ids.includes(job as never)) &&
       (!badge || t.trust.badge === badge) &&
       (!free || t.price.free_plan),
-  );
+  ).sort((a, b) => (RANK[a.trust.badge] ?? 3) - (RANK[b.trust.badge] ?? 3) || b.trust.score - a.trust.score || a.name.localeCompare(b.name));
+  // How many cards are on screen; a change of filters starts again from one page.
+  const filters = [type, job, badge, free, unvetted].join("|");
+  const [more, setMore] = useState({ filters, n: PAGE });
+  const n = more.filters === filters ? more.n : PAGE;
+  const rest = shown.length - n;
 
   return (
     <div className="mt-8">
@@ -66,8 +76,15 @@ export default function CatalogBrowser() {
       )}
       <p className="mt-6 text-muted" aria-live="polite">{shown.length} {shown.length === 1 ? "tool" : "tools"}</p>
       <div className="mt-3 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {shown.map((t) => <ToolCard key={t.id} tool={t} />)}
+        {shown.slice(0, n).map((t) => <ToolCard key={t.id} tool={t} />)}
       </div>
+      {rest > 0 && (
+        <div className="mt-6 flex justify-center">
+          <button type="button" className="btn btn-secondary" onClick={() => setMore({ filters, n: n + PAGE })}>
+            Show {Math.min(rest, PAGE)} more {Math.min(rest, PAGE) === 1 ? "tool" : "tools"}
+          </button>
+        </div>
+      )}
       {shown.length === 0 && <p className="mt-4">No tools match those choices. Try clearing a filter.</p>}
     </div>
   );

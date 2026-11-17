@@ -237,7 +237,7 @@ body:has(.owner-theme) ::selection { background: var(--color-accent); color: var
   transition: transform var(--dur-1) var(--ease-out), opacity var(--dur-1) ease;
 }
 .theme-graphite .shop-share:active:not(:disabled) { transform: scale(0.96); }
-.theme-graphite .shop-share:disabled { opacity: 0.35; cursor: not-allowed; }
+.theme-graphite .shop-share:disabled { background: var(--color-surface-2); color: var(--color-ink-3); cursor: not-allowed; }
 .theme-graphite .shop-error { margin: 0; color: var(--color-ink); font-size: var(--text-body); line-height: 1.5; }
 .theme-graphite .shop-skip { align-self: center; color: var(--color-ink-2); font-size: var(--text-ui); text-decoration: underline; }
 @media (hover: hover) and (pointer: fine) {

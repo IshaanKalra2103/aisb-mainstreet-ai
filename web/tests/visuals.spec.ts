@@ -22,8 +22,7 @@ test("an example owner page shows the shop's street above the deck and a photo o
   await page.goto("/b/demo-coffee");
   const card = (name: RegExp) => page.getByRole("article", { name }).getByTestId("place-photo");
   await expect(page.getByRole("region", { name: "Your business" }).getByTestId("place-photo")).toHaveAttribute("src", "/places/coffee/hero.jpg");
-  // Job 1 of coffee has a preview video; job 2 has none, so it shows a photo of the job being done.
-  await page.getByRole("button", { name: "Not now" }).click();
+  // Job 1 of coffee (the website chat) has no preview video, so it shows a photo of the job being done.
   const img = card(/Website chat and FAQ/);
   await expect(img).toHaveAttribute("src", /^\/jobs\/(coffee\/)?website-chat(-2)?\.jpg$/);
   await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(0);
@@ -117,7 +116,7 @@ test("the business summary is its own section above the deck, and the deck start
   await expect(about.getByText(/Daniel Ortiz runs Bean & Brick/)).toBeVisible();
   await expect(about.locator("article")).toHaveCount(0);
   await expect(page.getByRole("article", { name: /Here's what we understood/ })).toHaveCount(0);
-  await expect(page.getByRole("article", { name: /^Social posts and specials, 1 of / })).toBeVisible();
+  await expect(page.getByRole("article", { name: /^Website chat and FAQ, 1 of / })).toBeVisible();
   const aboutBox = await about.boundingBox();
   const deckBox = await page.getByRole("region", { name: "Your cards" }).boundingBox();
   expect(aboutBox!.y + aboutBox!.height).toBeLessThanOrEqual(deckBox!.y);
@@ -129,11 +128,11 @@ test("the list view shows only the numbered jobs with our pick, and switches bac
   const rows = page.getByTestId("need-item");
   await expect(rows).toHaveCount(4);
   await expect(rows.first()).toContainText("Job 1");
-  await expect(rows.first()).toContainText("Social posts and specials");
-  await expect(rows.first()).toContainText("Our pick: Apaya");
+  await expect(rows.first()).toContainText("Website chat and FAQ");
+  await expect(rows.first()).toContainText("Our pick: Chatling");
   await expect(page.getByRole("list", { name: "All jobs" }).getByRole("listitem")).toHaveCount(4);
   await rows.nth(1).click();
-  await expect(page.getByRole("article", { name: /^Website chat and FAQ, 2 of / })).toBeVisible();
+  await expect(page.getByRole("article", { name: /^Social posts and specials, 2 of / })).toBeVisible();
   await expect(page.getByRole("button", { name: "Cards", exact: true })).toHaveAttribute("aria-pressed", "true");
 });
 
@@ -158,9 +157,10 @@ test("Set it up on an example job opens the Setup tab", async ({ page }) => {
 
 test("job cards have two choices, Not now and Set it up, and the preview opens from the video", async ({ page }) => {
   await page.goto("/b/demo-coffee");
-  const card = page.getByRole("article", { name: /^Social posts and specials, 1 of / });
-  await expect(card.getByRole("button", { name: "Show me" })).toHaveCount(0);
-  await expect(card.getByRole("button", { name: "Not now" })).toBeVisible();
+  const first = page.getByRole("article", { name: /^Website chat and FAQ, 1 of / });
+  await expect(first.getByRole("button", { name: "Show me" })).toHaveCount(0);
+  await first.getByRole("button", { name: "Not now" }).click();
+  const card = page.getByRole("article", { name: /^Social posts and specials, 2 of / });
   await card.getByRole("button", { name: /Watch the preview/ }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
 });

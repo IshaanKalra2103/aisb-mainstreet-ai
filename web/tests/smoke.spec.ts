@@ -13,8 +13,12 @@ test("demo flow", async ({ page }) => {
   expect(await cards.count()).toBeGreaterThanOrEqual(2);
   const n = await cards.count();
   for (let i = 0; i < n; i++) await expect(cards.nth(i).getByTestId("trust-badge")).toBeVisible();
-  await expect(page.getByText(/Simulated owner test: \d+\/10 \(simulated\)/).first()).toBeVisible();
-  await expect(page.locator("video").first()).toBeAttached();
+  await expect(page.getByText(/^Simulated owner test: \d+\/10$/).first()).toBeVisible();
+  // The job with an AI preview (social posts) plays it on its card.
+  await page.getByRole("dialog").getByRole("button", { name: "Close" }).click();
+  await page.getByRole("button", { name: "List", exact: true }).click();
+  await page.getByTestId("need-item").filter({ hasText: "Social posts and specials" }).click();
+  await expect(page.getByRole("article", { name: /^Social posts and specials, / }).locator("video")).toBeAttached();
 });
 
 test("offline intake", async ({ page }) => {

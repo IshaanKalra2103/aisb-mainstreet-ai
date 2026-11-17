@@ -74,6 +74,7 @@ for await (const [space, message] of app.messages) {
     ...(location && {
       requestLocation: (who: string) => location.request(space.id, who),
       waitLocation: (who: string) => location.wait(who),
+      lateLocation: (who: string) => location.late(who),
     }),
   }).catch((e) => console.error(`[relay] handler crashed: ${e instanceof Error ? e.name : typeof e}`));
 }

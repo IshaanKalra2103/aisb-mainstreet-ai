@@ -62,7 +62,7 @@ try {
     card(page, {
       image: photo("job-2.jpg"),
       imageTitle: "Website chat and FAQ",
-      imageSubtitle: "Job 2 of 4",
+      imageSubtitle: "Job 1 of 4",
       caption: "Our pick: Chatling",
       subcaption: "Free plan · about 30 min to set up",
       trailingCaption: "2 hrs",

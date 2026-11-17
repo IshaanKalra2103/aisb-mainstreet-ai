@@ -39,7 +39,7 @@ export default function ToolCard({ tool, option, recommended, uses = [], detailL
         <span className="font-semibold">{tool.trust.score}/100</span>
       </div>
       {tool.sim_test && (
-        <p className="text-base">Simulated owner test: {tool.sim_test.score}/10 (simulated)</p>
+        <p className="text-base">Simulated owner test: {tool.sim_test.score}/10</p>
       )}
       <p className="text-base text-soft">
         About {tool.setup.minutes} minutes to set up, {tool.setup.difficulty === "easy" ? "easy" : tool.setup.difficulty === "medium" ? "some effort" : "needs a helper"}.

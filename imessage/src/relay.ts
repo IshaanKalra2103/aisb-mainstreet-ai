@@ -51,6 +51,8 @@ export interface RelayDeps {
   requestLocation?: (who: string) => Promise<"sent" | "pending" | "failed">;
   /** Resolves with the spot `who` shares, or null when they don't share in time. */
   waitLocation?: (who: string) => Promise<SharedSpot | null>;
+  /** A spot `who` shared after their wait ran out, checked when they text again; null when there is none. */
+  lateLocation?: (who: string) => Promise<SharedSpot | null>;
   /** Runs the wait for a shared spot without holding up this reply. Default: fire and forget. */
   background?: (work: Promise<unknown>) => void;
   /** iMessage app card (Apple's MSMessageTemplateLayout). With it, the owner's page goes out as a plan card. */
@@ -271,7 +273,14 @@ export async function handleMessage(msg: IncomingLike, deps: RelayDeps): Promise
   }
   const m = relayable(msg);
   if (!m) return "ignored";
-  log(`[in] ${hashSender(m.senderId).slice(0, 12)}`);
+  const tag = hashSender(m.senderId).slice(0, 12);
+  log(`[in] ${tag}`);
+  // A spot shared after the wait ran out goes to the agent first, as the share page's turn would.
+  const spot = deps.lateLocation ? await deps.lateLocation(m.senderId).catch(() => null) : null;
+  if (spot) {
+    log(`[loc] ${tag} shared late`);
+    await relayTurn(m.senderId, { text: shopTurnText(spot) }, deps);
+  }
   return relayTurn(m.senderId, { text: m.text }, deps);
 }
 
