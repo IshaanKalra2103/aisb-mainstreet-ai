@@ -40,7 +40,7 @@ Both doors, then the six steps an owner goes through: what we found, why we trus
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/how-it-works-dark.png">
-  <img src="docs/assets/how-it-works-light.png" alt="Flowchart in two lanes. You, the shop owner: 1 text the MainStreet number, 3 share your location and one link, 5 see what we found with each fact's source, 7 watch an AI video of the tool in your shop, then say yes. MainStreet AI: 2 texts back a Share your shop link, 4 reads your website and nearby Google Maps listings, 6 finds jobs AI can do and a trusted tool for each, 8 sets the tool up for you.">
+  <img src="docs/assets/how-it-works-light.png" alt="Flowchart in two lanes. You, the shop owner: 1 text the MainStreet number, 3 share your location and one link, 5 see what we found with each fact's source, 7 say yes, then watch the setup happen live. MainStreet AI: 2 texts back a Share your shop link, 4 reads your website and nearby Google Maps listings, 6 finds jobs AI can do and a trusted tool for each, 8 sets the tool up, then sends a 6-second preview of it at work.">
 </picture>
 
 Under the hood:
@@ -55,11 +55,27 @@ The chart's source is [`docs/assets/how-it-works.excalidraw`](docs/assets/how-it
 
 ## Preview videos
 
-Before saying yes, the owner can see the tool at work in a shop like theirs. The agent writes one scene from the shop's profile, and the `preview` tool renders it as a 6-second clip with Google Veo 3.1 Lite through OpenRouter's video API (720p, no audio, about $0.05 a second). The clip plays on the job card, labelled "AI-generated preview", and arrives inline in iMessage.
+The last step. Once the tool is set up, the owner gets a 6-second look at how it helps their shop in real life. A preview comes in one of two kinds; both of these are Square at the same salon, Main Street Shears.
 
-<p align="center">
-  <img src="docs/assets/preview-salon.gif" width="480" alt="AI-generated preview for a salon: a client books a haircut on her phone at night; next morning the stylist sees the day's schedule on a tablet at the front desk">
-</p>
+<table>
+  <tr>
+    <th width="50%">In the shop</th>
+    <th width="50%">On the shop's website</th>
+  </tr>
+  <tr>
+    <td><img src="docs/assets/preview-salon.gif" width="100%" alt="AI-generated preview for a salon: a client books a haircut on her phone at night; next morning the owner sees the day's schedule on a tablet at the front desk"></td>
+    <td><img src="docs/assets/preview-salon-site.gif" width="100%" alt="Preview on a copy of the Main Street Shears website: a cursor opens Book online, picks Women's cut and style, Saturday at 10:30, presses Book, and the widget shows Booked: women's cut and style, Saturday 10:30 am, 38 W Main Street, Westminster"></td>
+  </tr>
+  <tr>
+    <td>A client books a haircut on her phone at night. Next morning the owner sees the day's schedule on a tablet at the front desk.</td>
+    <td>A customer opens Book online on the shop's own page, picks a cut for Saturday at 10:30 and gets the booking confirmed.</td>
+  </tr>
+</table>
+
+- **In the shop.** The agent writes one scene from the shop's profile, and `preview make` renders it with Google Veo 3.1 Lite through OpenRouter's video API (720p, no audio, about $0.05 a second). It is labelled "AI-generated preview".
+- **On the shop's website.** The agent reads the shop's homepage in a cloud browser and rebuilds it as one page with the tool added, using the shop's real words. `preview record` then films the tool working there in a Browser Use browser: the cursor opens the tool, the customer's request goes in, and the answer comes back. The recording costs nothing in video credits.
+
+Either kind plays on the shop's page and arrives inline in iMessage. An owner can also ask for one on any job before saying yes.
 
 ## The market
 
@@ -67,11 +83,11 @@ Before saying yes, the owner can see the tool at work in a shop like theirs. The
 
 | | Who | How many | Source |
 |---|---|---|---|
-| TAM | Every U.S. small business | 36.2M | SBA Office of Advocacy, Feb 2026 |
-| SAM | U.S. small businesses not using AI yet (36.2M x 80.2%) | 29.0M | Census BTOS, May 2026 |
-| SOM | Maryland small businesses not using AI yet (696,710 x 80.2%) | 559K | SBA Advocacy, Maryland profile 2025 |
+| TAM | U.S. small businesses with employees (36.2M counting solo businesses) | 6.4M | SBA Advocacy, Census, 2026 |
+| SAM | Yearly AI-tool spend Main Street could route through one trusted assistant (6.4M x 2 tools x $30-79 a month) | $4.5-12B | Our estimate |
+| SOM | Maryland small businesses not using AI yet (696,710 x 80.2%) | 559K | SBA Advocacy, Maryland profile 2025; Census BTOS, May 2026 |
 
-Only 19.8% of U.S. businesses used AI in the past two weeks (Census BTOS, May 2026), and 22% of firms not planning to use it don't know what it can do (Census CES WP 26-25). The biggest directory lists 50,000+ tools and makers pay to be seen there. Our catalog is 85 tools a person approved (261 found, 207 read, 109 scored), with no paid placement. Each pick carries a trust score instead of star ratings: six checks, each linked to evidence (who's behind it, age, data handling, public prices, independent reviews, still shipping), and 75 out of 100 or more plus a person's sign-off makes it Verified. "Still shipping" is there because tools do vanish: Relay.app shut down and deleted all its workflows in August 2026.
+Only 19.8% of U.S. businesses used AI in the past two weeks (Census BTOS, May 2026). The playbook is OpenRouter's: one door to 400+ AI models for about the same 5% fee on any model, then a $7B+ Stripe deal in August 2026. We do that for Main Street's AI tools. Of 261 tools found, a person approved 85 and 19 earn Verified, and no maker can pay for placement. Verified is a trust score, not a star rating: six checks, each linked to evidence (who's behind it, age, data handling, public prices, independent reviews, still shipping), plus a person's sign-off. Policy tailwind: H.R. 5764 passed 395-14 on January 20, 2026 and is pending in the Senate.
 
 ## Layout
 
