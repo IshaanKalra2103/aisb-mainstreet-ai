@@ -27,7 +27,7 @@ test("offline intake", async ({ page }) => {
     page.getByText("Our live agent is resting right now. You can still explore five example businesses and the full tool catalog."),
   ).toBeVisible();
   await expect(page.locator("nextjs-portal")).toHaveCount(0);
-  await page.getByRole("button", { name: "Show me what AI can do" }).click();
+  await page.getByRole("button", { name: "Read my site" }).click();
   await expect(page).toHaveURL(/\/demo/);
 });
 
@@ -165,9 +165,9 @@ test("intake shows a 429 detail and retries instead of going to the demo", async
   });
   await page.goto("/");
   await page.getByLabel(/Paste your website/).fill("a coffee shop in Baltimore");
-  await page.getByRole("button", { name: "Show me what AI can do" }).click();
+  await page.getByRole("button", { name: "Read my site" }).click();
   await expect(page.getByText(capped)).toBeVisible();
-  await page.getByRole("button", { name: "Show me what AI can do" }).click();
+  await page.getByRole("button", { name: "Read my site" }).click();
   await expect.poll(() => owners).toBe(2);
   await expect(page).not.toHaveURL(/\/demo/);
 });
@@ -181,9 +181,9 @@ test("intake reuses the new owner when the first turn is refused", async ({ page
   });
   await page.goto("/");
   await page.getByLabel(/Paste your website/).fill("a coffee shop in Baltimore");
-  await page.getByRole("button", { name: "Show me what AI can do" }).click();
+  await page.getByRole("button", { name: "Read my site" }).click();
   await expect(page.getByText(BUSY_ALL)).toBeVisible();
-  await page.getByRole("button", { name: "Show me what AI can do" }).click();
+  await page.getByRole("button", { name: "Read my site" }).click();
   await expect.poll(() => turns).toBe(2);
   expect(owners).toBe(1);
 });

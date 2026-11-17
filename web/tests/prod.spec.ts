@@ -4,7 +4,7 @@ test("production intake: a real agent turn reaches the owner page", async ({ pag
   await page.goto("/");
   await expect(page.getByText(/offline/i)).toHaveCount(0);
   await page.getByLabel(/Paste your website/).fill(process.env.BIZ_URL ?? "https://mainstreet-demo-sites.vercel.app/diner/");
-  await page.getByRole("button", { name: "Show me what AI can do" }).click();
+  await page.getByRole("button", { name: "Read my site" }).click();
   await expect(page).toHaveURL(/\/b\/o_[0-9a-f]{10}/);
   const reply = page.locator("li", { hasText: "MainStreet:" }).first();
   await expect(reply).toBeVisible({ timeout: 540_000 });

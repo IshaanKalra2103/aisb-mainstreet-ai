@@ -13,6 +13,7 @@ import OfflineBanner from "./OfflineBanner";
 import TurnLog from "./TurnLog";
 import ChatBox from "./ChatBox";
 import TextUs from "./TextUs";
+import ReadingSite from "./ReadingSite";
 import { jobPhoto, placePhoto, siteLogo } from "@/lib/places";
 import ToolLogo from "./ToolLogo";
 import Sheet from "./Sheet";
@@ -171,6 +172,8 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   const closeRef = useRef<(() => void) | null>(null);
   const params = useSearchParams();
   const initialTurn = params.get("turn");
+  // The site the owner pasted on the landing page, for the wait screen's title.
+  const site = params.get("site");
 
   // What the page last showed, when that last changed, the turn it follows and the turns it saw finish.
   const lastJson = useRef("");
@@ -377,6 +380,8 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
   const lastReply = [...(bundle?.messages ?? [])].reverse().find((m) => m.role === "agent");
   const lastEvent = events[events.length - 1];
   const statusLine = [...events].reverse().find((e) => e.type === "status" || e.type === "queued" || e.type === "files");
+  // Each step the agent has reached, once, in order: the wait screen ticks them off.
+  const steps = [...new Set(events.filter((e) => e.type === "status" || e.type === "queued" || e.type === "files").map(eventLine))];
   const firstNeed = items[0];
   const suggestions = [
     ...items.filter((n) => !bundle?.compares[n.need_id]).slice(0, 2)
@@ -622,10 +627,8 @@ export default function BusinessView({ ownerId, demo }: { ownerId: string; demo?
             {showWorking ? (
               <section aria-live="polite" aria-label="Progress" className={`card !rounded-[var(--deck-radius)] relative mt-5 overflow-hidden ${cardH}`}>
                 <div className="relative flex-1 flex flex-col items-center justify-center p-6 text-center">
-                  <div className="soft-pulse h-20 w-20 rounded-full bg-[image:var(--orb)] shadow-[0_0_60px_var(--orb-glow)]" aria-hidden />
-                  <p className="mt-8 eyebrow">Working on it</p>
-                  <p className="mt-2 text-2xl font-semibold">{statusLine ? eventLine(statusLine) : "Loading your business..."}</p>
-                  <p className="mt-3 text-lg text-muted">This can take a minute or two. You can leave this page open.</p>
+                  <ReadingSite photo={shopPhoto} steps={steps}
+                    title={profile ? "Working on it" : site ? `Reading ${site}` : "Getting to know your shop"} />
                 </div>
               </section>
             ) : !bundle ? (

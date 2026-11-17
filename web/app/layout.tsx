@@ -3,8 +3,10 @@ import { Fraunces, Source_Sans_3 } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import "./graphite.css";
+import "./onboarding.css";
 import { APP_NAME, TAGLINE } from "@/lib/brand";
 import NavLinks from "@/components/NavLinks";
+import TextUsPass from "@/components/TextUsPass";
 import { SITE_URL, ogVideo } from "@/lib/ogVideo";
 
 const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"] });
@@ -26,12 +28,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${fraunces.variable} ${source.variable}`}>
       <body className="min-h-screen flex flex-col overflow-x-hidden">
-        <header className="border-b border-line/70 bg-card/60 backdrop-blur">
+        <header className="relative z-30 border-b border-line/70 bg-card/60 backdrop-blur">
           <div className="mx-auto max-w-5xl px-4 py-1 flex items-center justify-between gap-x-4">
             <Link href="/" className="text-xl font-semibold text-ink !no-underline py-2.5 whitespace-nowrap">
               {APP_NAME}<span aria-hidden className="ml-1 inline-block size-1.5 rounded-full bg-accent align-middle" />
             </Link>
-            <NavLinks />
+            <div className="flex items-center gap-4 sm:gap-6"><NavLinks /><TextUsPass /></div>
           </div>
         </header>
         {/* One look for the whole site: graphite + lime (graphite.css switches the tokens on <body> when it holds .owner-theme). */}

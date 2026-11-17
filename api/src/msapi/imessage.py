@@ -283,7 +283,7 @@ class IMessage:
             name = (_read(self.ws.owner_dir(oid) / "profile.json") or {}).get("name")
             link = f"{self.s.web_url}/b/{oid}"
             replies = [f"{hi} You asked for texts about {name or 'your shop'}.",
-                       "Text me here anytime: ask what AI can take off your plate, or say yes to a setup."]
+                       "Text me here anytime, like you'd text a friend who knows shops."]
             payload = {"replies": replies, "links": [link] if name else [], "poll": self._offer(oid)}
             self.ws.add_message(oid, "agent", "\n\n".join(replies), "imessage")
         else:
